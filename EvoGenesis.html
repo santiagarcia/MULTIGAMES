@@ -1,1114 +1,525 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <!-- Mobile responsiveness on fleek -->
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>EvoGenesis: Biome Overload Edition - iPhone-Friendly</title>
-    <style>
-      /* Base styles */
-      body {
-        margin: 0;
-        background: #000;
-        font-family: sans-serif;
-        color: #eee;
-      }
-      /* Canvas fills viewport but keeps an internal resolution for insane detail */
-      #canvas {
-        display: block;
-        width: 100vw;
-        height: 100vh;
-      }
-      /* Main UI panel */
-      #ui {
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 15px;
-        border-radius: 8px;
-        z-index: 10;
-        max-width: 300px;
-      }
-      #ui h2, #ui h3 {
-        margin-top: 0;
-      }
-      #ui button, #ui input[type="range"], #ui input[type="number"] {
-        margin-top: 10px;
-        padding: 5px 10px;
-        font-size: 14px;
-        cursor: pointer;
-      }
-      #selectedGenome {
-        white-space: pre-wrap;
-        font-size: 12px;
-        background: #333;
-        padding: 5px;
-        border-radius: 4px;
-        margin-top: 10px;
-        max-height: 150px;
-        overflow-y: auto;
-      }
-      /* Plot window styles */
-      #plotWindow {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 10px;
-        border-radius: 8px;
-        z-index: 10;
-        width: 300px;
-        height: 280px;
-        box-sizing: border-box;
-      }
-      #plotCheckboxes {
-        display: flex;
-        flex-wrap: wrap;
-        margin-bottom: 10px;
-      }
-      #plotCheckboxes label {
-        width: 50%;
-        font-size: 14px;
-      }
-      #plotCanvas {
-        width: 100%;
-        height: 200px;
-        background: #222;
-        border: 1px solid #555;
-      }
-      /* Minimap window styles */
-      #minimapWindow {
-        position: fixed;
-        bottom: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.8);
-        padding: 10px;
-        border-radius: 8px;
-        z-index: 10;
-        width: 300px;
-        height: 220px;
-        box-sizing: border-box;
-      }
-      #minimapWindow h3 {
-        margin: 0;
-        font-size: 16px;
-        margin-bottom: 5px;
-      }
-      #minimapCanvas {
-        width: 100%;
-        height: 180px;
-        background: #111;
-        border: 1px solid #555;
-      }
-      /* Simulation parameters panel */
-      #paramPanel {
-        margin-top: 15px;
-        padding: 10px;
-        background: rgba(0,0,0,0.6);
-        border-radius: 8px;
-      }
-      #paramPanel label {
-        display: block;
-        margin-top: 5px;
-        font-size: 13px;
-      }
-      #paramPanel input {
-        width: 100%;
-      }
-    </style>
-  </head>
-  <body>
-    <!-- Main canvas with a 3000x2000 internal resolution -->
-    <canvas id="canvas" width="3000" height="2000"></canvas>
-    
-    <!-- UI Panel -->
-    <div id="ui">
-      <h2>EvoGenesis</h2>
-      <div>Generation: <span id="generation">1</span></div>
-      <div>Population: <span id="population">0</span></div>
-      <div>Food Count: <span id="foodCount">0</span></div>
-      <div>Carnivores: <span id="carnivores">0</span></div>
-      <div>Herbivores: <span id="herbivores">0</span></div>
-      <div>Weather: <span id="weather">0.00</span></div>
-      <button id="addFoodBtn">Drop Food Here</button>
-      <h3>Selected Creature</h3>
-      <div id="selectedGenome">None</div>
-      <small>Click on a creature to inspect its genome.</small>
-      <!-- New simulation control buttons -->
-      <button id="pauseBtn">Pause</button>
-      <button id="resetBtn">Reset Game</button>
-      <div>
-        <label for="speedSlider">Sim Speed:</label>
-        <input type="range" id="speedSlider" min="0.05" max="0.5" step="0.05" value="0.1">
-      </div>
-      <!-- NEW: Simulation Parameters Panel -->
-      <div id="paramPanel">
-        <h3>Simulation Parameters</h3>
-        <label for="initPopInput">Initial Population:</label>
-        <input type="number" id="initPopInput" value="100" min="1">
-        <label for="initFoodInput">Initial Food:</label>
-        <input type="number" id="initFoodInput" value="10" min="1">
-        <label for="metabolismInput">Metabolism Factor:</label>
-        <input type="number" id="metabolismInput" value="0.01" step="0.001">
-        <label for="foodEnergyInput">Food Energy:</label>
-        <input type="number" id="foodEnergyInput" value="20" step="1">
-        <label for="foodRegrowthInput">Base Food Regrowth Rate:</label>
-        <input type="number" id="foodRegrowthInput" value="0.02" step="0.001">
-        <label for="reproCostInput">Reproduction Cost:</label>
-        <input type="number" id="reproCostInput" value="10" step="1">
-        <label for="reproCooldownInput">Reproduction Cooldown:</label>
-        <input type="number" id="reproCooldownInput" value="5" step="0.1">
-        <!-- NEW: Button to apply parameters and restart simulation -->
-        <button id="applyParamsBtn">Apply Parameters & Restart</button>
-      </div>
-    </div>
-    
-    <!-- Plot Window -->
-    <div id="plotWindow">
-      <div id="plotCheckboxes">
-        <label><input type="checkbox" value="population" checked />Pop</label>
-        <label><input type="checkbox" value="food" checked />Food</label>
-        <label><input type="checkbox" value="weather" checked />Weather</label>
-        <label><input type="checkbox" value="generation" />Gen</label>
-        <label><input type="checkbox" value="avgEnergy" />Avg E</label>
-        <label><input type="checkbox" value="preyCount" checked />Prey</label>
-        <label><input type="checkbox" value="carnivoreCount" checked />Carn</label>
-      </div>
-      <canvas id="plotCanvas" width="300" height="200"></canvas>
-    </div>
-    
-    <!-- Minimap Window -->
-    <div id="minimapWindow">
-      <h3>Minimap</h3>
-      <canvas id="minimapCanvas" width="300" height="180"></canvas>
-    </div>
-    
-    <script>
-      /***************************
-       * CONFIGURATION CONSTANTS *
-       ***************************/
-      const CONFIG = {
-        worldWidth: 3000,
-        worldHeight: 2000,
-        initialPopulation: 100,
-        initialFood: 10,
-        metabolismFactor: 0.01,
-        foodEnergy: 20,
-        baseFoodRegrowthRate: 0.02,
-        reproductionCost: 10,
-        reproductionCooldown: 5,
-        sizeRange: [2, 8],
-        speedRange: [1, 100],
-        metabolismRange: [0.1, 20],
-        aggressionRange: [0, 1],
-        reproThresholdRange: [100, 200],
-        lifespanRange: [100, 300],
-        carnivorousRange: [0, 1],
-        visionRange: [50, 150],
-        legsRange: [0, 10],
-        bodySegmentsRange: [1, 8],
-        shellRange: [0, 5],
-        sexualReproChance: 0.5,
-        cannibalismBonus: 0.5,
-        dt: 0.1, // Adjustable simulation speed
-        weatherPeriod: 30,
-        corpseEnergyFraction: 0.5,
-        ALLOW_ASEXUAL: 0
-      };
-
-      const TERRAIN_CELL_SIZE = 50;
-      const TERRAIN_TYPES = [
-        { type: "plains", color: "#555", speed: 1.0, food: 1.0 },
-        { type: "forest", color: "#3a5", speed: 0.8, food: 1.2 },
-        { type: "swamp", color: "#336", speed: 0.6, food: 0.8 },
-        { type: "mountain", color: "#777", speed: 0.7, food: 0.5 }
-      ];
-      
-      // Global particles array for epic explosion effects
-      let particles = [];
-
-      /**********************
-       * UTILITY FUNCTIONS  *
-       **********************/
-      function randomInRange(min, max) {
-        return Math.random() * (max - min) + min;
-      }
-      function randomIntInRange(min, max) {
-        return Math.floor(randomInRange(min, max + 1));
-      }
-      function distance(a, b) {
-        const dx = a.x - b.x, dy = a.y - b.y;
-        return Math.sqrt(dx * dx + dy * dy);
-      }
-      function clamp(val, min, max) {
-        return Math.max(min, Math.min(max, val));
-      }
-      function areGenomesSimilar(g1, g2) {
-        let totalDiff =
-          Math.abs(g1.size - g2.size) +
-          Math.abs(g1.speed - g2.speed) +
-          Math.abs(g1.aggression - g2.aggression) +
-          Math.abs(g1.reproductionThreshold - g2.reproductionThreshold) +
-          Math.abs(g1.lifespan - g2.lifespan) +
-          Math.abs(g1.vision - g2.vision) +
-          Math.abs(g1.legs - g2.legs) +
-          Math.abs(g1.bodySegments - g2.bodySegments) +
-          Math.abs(g1.shell - g2.shell);
-        return totalDiff / 9 < 1.0;
-      }
-      // NEW: Convert client coordinates to canvas coordinates
-      function getCanvasCoordinates(event, canvasElement) {
-        const rect = canvasElement.getBoundingClientRect();
-        const scaleX = canvasElement.width / rect.width;
-        const scaleY = canvasElement.height / rect.height;
-        const x = (event.clientX - rect.left) * scaleX;
-        const y = (event.clientY - rect.top) * scaleY;
-        return { x, y };
-      }
-
-      /*************************
-       * CLASS: PARTICLE       *
-       *************************/
-      class Particle {
-        constructor(x, y, vx, vy, life, radius, color) {
-          this.x = x;
-          this.y = y;
-          this.vx = vx;
-          this.vy = vy;
-          this.life = life;
-          this.radius = radius;
-          this.color = color;
-        }
-        update(dt) {
-          this.x += this.vx * dt;
-          this.y += this.vy * dt;
-          this.life -= dt;
-        }
-        draw(ctx) {
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-          ctx.fillStyle = this.color;
-          ctx.fill();
-        }
-      }
-      function spawnParticles(x, y, baseSize) {
-        const numParticles = Math.floor(Math.random() * 5) + 5;
-        for (let i = 0; i < numParticles; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = Math.random() * 50 + 20;
-          const vx = Math.cos(angle) * speed;
-          const vy = Math.sin(angle) * speed;
-          const life = Math.random() * 0.5 + 0.5;
-          const radius = Math.random() * (baseSize / 10) + 1;
-          const red = Math.floor(200 + Math.random() * 55);
-          const green = Math.floor(Math.random() * 100);
-          const blue = 0;
-          const color = `rgb(${red}, ${green}, ${blue})`;
-          particles.push(new Particle(x, y, vx, vy, life, radius, color));
-        }
-      }
-      function updateParticles(dt) {
-        particles.forEach(p => p.update(dt));
-        particles = particles.filter(p => p.life > 0);
-      }
-      function drawParticles(ctx) {
-        particles.forEach(p => p.draw(ctx));
-      }
-
-      /***********************
-       * GENOME & TERRAIN    *
-       ***********************/
-      function randomGenome() {
-        let carnivorous = Math.random() < 0.5 ? 0 : 1;
-        let baseSpeed = randomInRange(...CONFIG.speedRange);
-        if (carnivorous >= 1) baseSpeed *= 1.2;
-        return {
-          size: randomInRange(...CONFIG.sizeRange),
-          speed: baseSpeed,
-          metabolism: randomInRange(...CONFIG.metabolismRange),
-          aggression: randomInRange(...CONFIG.aggressionRange),
-          reproductionThreshold: randomInRange(...CONFIG.reproThresholdRange),
-          lifespan: randomInRange(...CONFIG.lifespanRange),
-          carnivorous: carnivorous,
-          vision: randomInRange(...CONFIG.visionRange),
-          legs: randomIntInRange(CONFIG.legsRange[0], CONFIG.legsRange[1]),
-          bodySegments: randomIntInRange(CONFIG.bodySegmentsRange[0], CONFIG.bodySegmentsRange[1]),
-          shell: Math.random() * (CONFIG.shellRange[1] - CONFIG.shellRange[0]) + CONFIG.shellRange[0]
-        };
-      }
-      function crossoverGenome(g1, g2) {
-        return {
-          size: (g1.size + g2.size) / 2,
-          speed: (g1.speed + g2.speed) / 2,
-          metabolism: (g1.metabolism + g2.metabolism) / 2,
-          aggression: (g1.aggression + g2.aggression) / 2,
-          reproductionThreshold: (g1.reproductionThreshold + g2.reproductionThreshold) / 2,
-          lifespan: (g1.lifespan + g2.lifespan) / 2,
-          carnivorous: Math.random() < 0.5 ? g1.carnivorous : g2.carnivorous,
-          vision: (g1.vision + g2.vision) / 2,
-          legs: Math.floor((g1.legs + g2.legs) / 2),
-          bodySegments: Math.floor((g1.bodySegments + g2.bodySegments) / 2),
-          shell: (g1.shell + g2.shell) / 2
-        };
-      }
-      function mutateGenome(genome) {
-        const mutateParam = (val, range, mutationRate = 0.1, integer = false) => {
-          if (Math.random() < 0.2) {
-            let delta = (Math.random() - 0.5) * mutationRate * (range[1] - range[0]);
-            let newVal = val + delta;
-            if (integer) newVal = Math.round(newVal);
-            return clamp(newVal, range[0], range[1]);
-          }
-          return val;
-        };
-        return {
-          size: mutateGenomeParameter(genome.size, CONFIG.sizeRange),
-          speed: mutateGenomeParameter(genome.speed, CONFIG.speedRange),
-          metabolism: mutateGenomeParameter(genome.metabolism, CONFIG.metabolismRange),
-          aggression: mutateGenomeParameter(genome.aggression, CONFIG.aggressionRange),
-          reproductionThreshold: mutateGenomeParameter(genome.reproductionThreshold, CONFIG.reproThresholdRange),
-          lifespan: mutateGenomeParameter(genome.lifespan, CONFIG.lifespanRange),
-          carnivorous: genome.carnivorous,
-          vision: genome.vision,
-          legs: mutateParam(genome.legs, CONFIG.legsRange, 0.1, true),
-          bodySegments: mutateParam(genome.bodySegments, CONFIG.bodySegmentsRange, 0.1, true),
-          shell: mutateParam(genome.shell, CONFIG.shellRange)
-        };
-      }
-      function mutateGenomeParameter(val, range) {
-        const mutationRate = 0.1;
-        if (Math.random() < 0.2) {
-          let delta = (Math.random() - 0.5) * mutationRate * (range[1] - range[0]);
-          let newVal = val + delta;
-          return clamp(newVal, range[0], range[1]);
-        }
-        return val;
-      }
-      function generateTerrain(worldWidth, worldHeight, cellSize) {
-        const totalCols = Math.ceil(worldWidth / cellSize);
-        const totalRows = Math.ceil(worldHeight / cellSize);
-        const biomeScale = 5;
-        const biomeCols = Math.ceil(totalCols / biomeScale);
-        const biomeRows = Math.ceil(totalRows / biomeScale);
-        let biomeGrid = [];
-        for (let i = 0; i < biomeRows; i++) {
-          let biomeRow = [];
-          for (let j = 0; j < biomeCols; j++) {
-            let typeObj = TERRAIN_TYPES[randomIntInRange(0, TERRAIN_TYPES.length - 1)];
-            biomeRow.push(typeObj);
-          }
-          biomeGrid.push(biomeRow);
-        }
-        let terrain = [];
-        for (let rowIdx = 0; rowIdx < totalRows; rowIdx++) {
-          let terrainRow = [];
-          let biomeRowIdx = Math.floor(rowIdx / biomeScale);
-          for (let colIdx = 0; colIdx < totalCols; colIdx++) {
-            let biomeColIdx = Math.floor(colIdx / biomeScale);
-            let biomeType = biomeGrid[biomeRowIdx][biomeColIdx];
-            terrainRow.push({
-              type: biomeType.type,
-              color: biomeType.color,
-              speed: biomeType.speed,
-              food: biomeType.food
-            });
-          }
-          terrain.push(terrainRow);
-        }
-        return terrain;
-      }
-      
-      /**********************
-       * CLASS: FOOD        *
-       **********************/
-      class Food {
-        constructor(x, y, energy = CONFIG.foodEnergy) {
-          this.x = x;
-          this.y = y;
-          this.energy = energy;
-          this.radius = 4;
-        }
-        draw(ctx) {
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-          ctx.fillStyle = "#0a0";
-          ctx.fill();
-        }
-      }
-      
-      /**********************
-       * CLASS: CORPSE      *
-       **********************/
-      class Corpse {
-        constructor(x, y, energy, isPredator = false) {
-          this.x = x;
-          this.y = y;
-          this.energy = energy;
-          this.radius = 6;
-          this.isPredator = isPredator;
-          this.age = 0;
-          this.maxAge = 5;
-        }
-        update(dt) {
-          this.age += dt;
-        }
-        draw(ctx) {
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-          ctx.fillStyle = "#a33";
-          ctx.fill();
-        }
-      }
-      
-      /**********************
-       * CLASS: PROJECTILE  *
-       **********************/
-      class Projectile {
-        constructor(x, y, vx, vy, damage) {
-          this.x = x;
-          this.y = y;
-          this.vx = vx;
-          this.vy = vy;
-          this.damage = damage;
-          this.radius = 3;
-          this.lifetime = 2;
-        }
-        update(dt, world) {
-          this.x += this.vx * dt;
-          this.y += this.vy * dt;
-          this.lifetime -= dt;
-          for (let creature of world.creatures) {
-            if (!creature.alive) continue;
-            if (creature.genome.carnivorous < 0.5) {
-              if (distance(this, creature) < this.radius + creature.genome.size / 2) {
-                creature.energy -= this.damage;
-                this.lifetime = 0;
-              }
-            }
-          }
-        }
-        draw(ctx) {
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-          ctx.fillStyle = "#f00";
-          ctx.fill();
-        }
-      }
-      
-      /**********************
-       * CLASS: CREATURE    *
-       **********************/
-      class Creature {
-        constructor(genome, x, y, generation = 1) {
-          this.genome = genome;
-          this.x = x;
-          this.y = y;
-          this.vx = 0;
-          this.vy = 0;
-          this.energy = genome.reproductionThreshold / 2;
-          this.age = 0;
-          this.alive = true;
-          this.generation = generation;
-          this.reproductionCooldown = 0;
-          this.wanderAngle = Math.random() * Math.PI * 2;
-        }
-        update(dt, world) {
-          if (!this.alive) return;
-          this.age += dt;
-          this.reproductionCooldown = Math.max(0, this.reproductionCooldown - dt);
-          this.energy -= this.genome.metabolism * CONFIG.metabolismFactor * dt;
-          if (this.energy <= 0 || this.age > this.genome.lifespan) {
-            this.alive = false;
-            spawnParticles(this.x, this.y, this.genome.size);
-            let leftoverEnergy = this.energy * CONFIG.corpseEnergyFraction;
-            if (leftoverEnergy > 5) {
-              world.corpses.push(new Corpse(this.x, this.y, leftoverEnergy, this.genome.carnivorous >= 0.5));
-            }
-            return;
-          }
-      
-          let cellCol = Math.floor(this.x / TERRAIN_CELL_SIZE);
-          let cellRow = Math.floor(this.y / TERRAIN_CELL_SIZE);
-          let terrainCell = world.terrain[cellRow][cellCol];
-          let speedMultiplier = terrainCell.speed;
-      
-          // Carnivores get a wider view range.
-          let effectiveVision = this.genome.vision;
-          if (this.genome.carnivorous >= 0.5) {
-            effectiveVision *= 1.5;
-          }
-      
-          let hunger = clamp(1 - this.energy / this.genome.reproductionThreshold, 0, 1);
-          let desireToMate = clamp((this.energy - this.genome.reproductionThreshold) / this.genome.reproductionThreshold, 0, 1);
-          let target = null, targetType = null, bestDist = Infinity;
-      
-          if (this.genome.carnivorous < 0.5) {
-            for (let food of world.food) {
-              let d = distance(this, food);
-              if (d < effectiveVision && d < bestDist) {
-                bestDist = d;
-                target = food;
-                targetType = "food";
-              }
-            }
-          } else {
-            if (this.energy < this.genome.reproductionThreshold) {
-              for (let corpse of world.corpses) {
-                let d = distance(this, corpse);
-                if (d < effectiveVision && d < bestDist) {
-                  bestDist = d;
-                  target = corpse;
-                  targetType = "corpse";
-                }
-              }
-              for (let other of world.creatures) {
-                if (other === this || !other.alive) continue;
-                if (other.genome.size <= this.genome.size) {
-                  let d = distance(this, other);
-                  if (d < effectiveVision && d < bestDist) {
-                    bestDist = d;
-                    target = other;
-                    targetType = "prey";
-                  }
-                }
-              }
-            } else if (desireToMate > hunger) {
-              for (let other of world.creatures) {
-                if (other === this || !other.alive) continue;
-                if (other.energy > other.genome.reproductionThreshold && distance(this, other) < 100) {
-                  let d = distance(this, other);
-                  if (d < bestDist) {
-                    bestDist = d;
-                    target = other;
-                    targetType = "mate";
-                  }
-                }
-              }
-            }
-          }
-      
-          let extraSpeed = 1;
-          if (this.genome.carnivorous >= 0.5 && targetType === "prey") {
-            extraSpeed = 1.5;
-            if (bestDist > this.genome.size * 3 && Math.random() < 0.05) {
-              let angle = Math.atan2(target.y - this.y, target.x - this.x);
-              let projSpeed = this.genome.speed * 1.5;
-              let vx = Math.cos(angle) * projSpeed;
-              let vy = Math.sin(angle) * projSpeed;
-              let damage = this.genome.aggression * 10;
-              world.projectiles.push(new Projectile(this.x, this.y, vx, vy, damage));
-            }
-          }
-      
-          let desiredVx = 0, desiredVy = 0;
-          if (target) {
-            let angle = Math.atan2(target.y - this.y, target.x - this.x);
-            desiredVx = Math.cos(angle) * this.genome.speed * extraSpeed;
-            desiredVy = Math.sin(angle) * this.genome.speed * extraSpeed;
-          } else {
-            if (hunger > 0.5) {
-              this.wanderAngle += (Math.random() - 0.5) * 0.1;
-              desiredVx = Math.cos(this.wanderAngle) * this.genome.speed;
-              desiredVy = Math.sin(this.wanderAngle) * this.genome.speed;
-            } else {
-              desiredVx = (Math.random() - 0.5) * this.genome.speed;
-              desiredVy = (Math.random() - 0.5) * this.genome.speed;
-            }
-          }
-      
-          const steering = 0.05;
-          desiredVx *= speedMultiplier;
-          desiredVy *= speedMultiplier;
-          this.vx = (1 - steering) * this.vx + steering * desiredVx;
-          this.vy = (1 - steering) * this.vy + steering * desiredVy;
-          this.x += this.vx * CONFIG.dt;
-          this.y += this.vy * CONFIG.dt;
-          this.x = clamp(this.x, 20, world.width - 20);
-          this.y = clamp(this.y, 20, world.height - 20);
-      
-          if (target) {
-            let d = distance(this, target);
-            if (targetType === "food" && d < this.genome.size + target.radius) {
-              this.energy += target.energy;
-              world.removeFood(target);
-            }
-            if (targetType === "corpse" && d < this.genome.size + target.radius && this.genome.carnivorous >= 0.5) {
-              if (!target.isPredator) {
-                this.energy += target.energy;
-                world.removeCorpse(target);
-              }
-            }
-            if (targetType === "prey" && d < this.genome.size + target.genome.size) {
-              if (target.genome.size <= this.genome.size) {
-                if (target.genome.carnivorous >= 0.5 && areGenomesSimilar(this.genome, target.genome)) {
-                  // Avoid cannibalism among similar predators
-                } else {
-                  let sizeDiff = this.genome.size - target.genome.size;
-                  let fightChance = this.genome.aggression * (0.5 + 0.5 * (sizeDiff / this.genome.size));
-                  fightChance *= 1.5;
-                  if (target.genome.carnivorous < 0.5) fightChance *= 1.2;
-                  if (Math.random() < fightChance) {
-                    this.energy += target.energy * CONFIG.cannibalismBonus;
-                    target.alive = false;
-                    spawnParticles(target.x, target.y, target.genome.size);
-                    let leftover = target.energy * CONFIG.corpseEnergyFraction;
-                    if (leftover > 5) {
-                      world.corpses.push(new Corpse(target.x, target.y, leftover, target.genome.carnivorous >= 0.5));
-                    }
-                  } else {
-                    if (target.genome.carnivorous < 0.5) this.energy -= 5;
-                  }
-                }
-              }
-            }
-          }
-      
-          // Reproduction logic
-          if (this.energy > this.genome.reproductionThreshold && this.reproductionCooldown <= 0) {
-            let mate = null;
-            for (let other of world.creatures) {
-              if (other === this || !other.alive) continue;
-              if (other.energy > other.genome.reproductionThreshold && distance(this, other) < 30) {
-                mate = other;
-                break;
-              }
-            }
-            if (mate && Math.random() < CONFIG.sexualReproChance) {
-              let childGenome = crossoverGenome(this.genome, mate.genome);
-              childGenome = mutateGenome(childGenome);
-              let childGen = Math.max(this.generation, mate.generation) + 1;
-              world.addCreature(new Creature(childGenome, this.x, this.y, childGen));
-              this.energy -= CONFIG.reproductionCost;
-              mate.energy -= CONFIG.reproductionCost;
-              this.reproductionCooldown = CONFIG.reproductionCooldown;
-            }
-          }
-        }
-        draw(ctx) {
-          if (!this.alive) return;
-          let headRadius = this.genome.size / 2;
-          let bodyLength = this.genome.size;
-          let totalBodyLength = this.genome.bodySegments * bodyLength;
-          let energyRatio = clamp(this.energy / this.genome.reproductionThreshold, 0, 1);
-          let r = Math.floor(255 * (1 - energyRatio));
-          let g = Math.floor(255 * energyRatio);
-          let color = `rgb(${r},${g},${Math.min(255, this.generation * 20)})`;
-          ctx.save();
-          ctx.translate(this.x, this.y);
-          if (this.genome.shell > 0.5) {
-            ctx.beginPath();
-            ctx.arc(0, -totalBodyLength, headRadius * 2, 0, Math.PI * 2);
-            ctx.strokeStyle = "#bbb";
-            ctx.lineWidth = 2;
-            ctx.stroke();
-          }
-          ctx.beginPath();
-          ctx.arc(0, -totalBodyLength, headRadius, 0, Math.PI * 2);
-          ctx.fillStyle = color;
-          ctx.fill();
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(0, -totalBodyLength + headRadius);
-          ctx.lineTo(0, 0);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(0, -totalBodyLength + headRadius * 1.5);
-          ctx.lineTo(-headRadius, -totalBodyLength + headRadius * 1.5 + headRadius);
-          ctx.moveTo(0, -totalBodyLength + headRadius * 1.5);
-          ctx.lineTo(headRadius, -totalBodyLength + headRadius * 1.5 + headRadius);
-          ctx.stroke();
-          let legCount = this.genome.legs;
-          for (let i = 0; i < legCount; i++) {
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            let angle = -Math.PI / 4 + (legCount > 1 ? (i / (legCount - 1)) * (Math.PI / 2) : 0);
-            let legLen = bodyLength;
-            let lx = Math.cos(angle) * legLen;
-            let ly = Math.sin(angle) * legLen;
-            ctx.lineTo(lx, ly);
-            ctx.stroke();
-          }
-          ctx.restore();
-        }
-      }
-      
-      /**********************
-       * CLASS: WORLD       *
-       **********************/
-      class World {
-        constructor(width, height) {
-          this.width = width;
-          this.height = height;
-          this.creatures = [];
-          this.food = [];
-          this.corpses = [];
-          this.projectiles = [];
-          this.terrain = generateTerrain(width, height, TERRAIN_CELL_SIZE);
-          this.generation = 1;
-          this.time = 0;
-          this.foodSpawnTimer = 0;
-        }
-        initialize() {
-          this.creatures = [];
-          this.food = [];
-          this.corpses = [];
-          this.projectiles = [];
-          this.terrain = generateTerrain(this.width, this.height, TERRAIN_CELL_SIZE);
-          for (let i = 0; i < CONFIG.initialPopulation; i++) {
-            let genome = randomGenome();
-            let x = randomInRange(50, this.width - 50);
-            let y = randomInRange(50, this.height - 50);
-            this.creatures.push(new Creature(genome, x, y, 1));
-          }
-          for (let i = 0; i < CONFIG.initialFood; i++) {
-            let x = randomInRange(20, this.width - 20);
-            let y = randomInRange(20, this.height - 20);
-            this.food.push(new Food(x, y));
-          }
-          this.foodSpawnTimer = 0;
-          document.getElementById("generation").innerText = this.generation;
-        }
-        addCreature(creature) {
-          this.creatures.push(creature);
-        }
-        removeFood(foodItem) {
-          this.food = this.food.filter(f => f !== foodItem);
-        }
-        removeCorpse(corpseItem) {
-          this.corpses = this.corpses.filter(c => c !== corpseItem);
-        }
-        update(dt) {
-          this.time += dt;
-          let weather = (Math.sin((2 * Math.PI * this.time) / CONFIG.weatherPeriod) + 1) / 2;
-          document.getElementById("weather").innerText = weather.toFixed(2);
-          for (let creature of this.creatures) {
-            creature.update(dt, this);
-          }
-          for (let corpse of this.corpses) {
-            corpse.update(dt);
-          }
-          this.corpses = this.corpses.filter(c => c.age <= c.maxAge);
-          for (let projectile of this.projectiles) {
-            projectile.update(dt, this);
-          }
-          this.projectiles = this.projectiles.filter(p => p.lifetime > 0);
-          this.foodSpawnTimer += dt;
-          if (this.foodSpawnTimer >= 3) {
-            for (let row = 0; row < this.terrain.length; row++) {
-              for (let col = 0; col < this.terrain[0].length; col++) {
-                let cell = this.terrain[row][col];
-                if (Math.random() < CONFIG.baseFoodRegrowthRate * cell.food * weather) {
-                  let cellX = col * TERRAIN_CELL_SIZE;
-                  let cellY = row * TERRAIN_CELL_SIZE;
-                  let x = randomInRange(cellX, cellX + TERRAIN_CELL_SIZE);
-                  let y = randomInRange(cellY, cellY + TERRAIN_CELL_SIZE);
-                  this.food.push(new Food(x, y));
-                }
-              }
-            }
-            this.foodSpawnTimer = 0;
-          }
-          this.creatures = this.creatures.filter(creature => creature.alive);
-          if (this.creatures.length > 0) {
-            let minGen = Math.min(...this.creatures.map(c => c.generation));
-            if (minGen > this.generation) {
-              this.generation = minGen;
-              document.getElementById("generation").innerText = this.generation;
-            }
-          } else {
-            this.generation = 1;
-            document.getElementById("generation").innerText = this.generation;
-            this.initialize();
-          }
-          document.getElementById("population").innerText = this.creatures.length;
-          document.getElementById("foodCount").innerText = this.food.length;
-        }
-        draw(ctx) {
-          for (let row = 0; row < this.terrain.length; row++) {
-            for (let col = 0; col < this.terrain[0].length; col++) {
-              let cell = this.terrain[row][col];
-              ctx.fillStyle = cell.color;
-              ctx.fillRect(col * TERRAIN_CELL_SIZE, row * TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE);
-            }
-          }
-          ctx.fillStyle = "rgba(34,34,34,0.8)";
-          ctx.fillRect(0, 0, this.width, this.height);
-          for (let f of this.food) { f.draw(ctx); }
-          for (let c of this.corpses) { c.draw(ctx); }
-          for (let projectile of this.projectiles) { projectile.draw(ctx); }
-          for (let creature of this.creatures) { creature.draw(ctx); }
-        }
-      }
-      
-      /************************************
-       * RESPONSIVE & TOUCH SUPPORT FUN   *
-       ************************************/
-      const canvas = document.getElementById("canvas");
-      const ctx = canvas.getContext("2d");
-      
-      // Global mouse object in canvas coordinates
-      let mouse = { x: 0, y: 0 };
-      
-      // Resize the canvas display to fill viewport
-      function resizeCanvas() {
-        canvas.style.width = window.innerWidth + "px";
-        canvas.style.height = window.innerHeight + "px";
-      }
-      window.addEventListener("resize", resizeCanvas);
-      resizeCanvas();
-      
-      // Touch events with proper coordinate scaling
-      canvas.addEventListener("touchstart", function(e) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const { x: mouseX, y: mouseY } = getCanvasCoordinates(touch, canvas);
-        selectedCreature = null;
-        for (let creature of world.creatures) {
-          if (distance({ x: mouseX, y: mouseY }, creature) < creature.genome.size + 5) {
-            selectedCreature = creature;
-            break;
-          }
-        }
-        if (!selectedCreature) {
-          world.food.push(new Food(mouseX, mouseY));
-        }
-        updateSelectedUI();
-      });
-      canvas.addEventListener("touchmove", function(e) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        mouse = getCanvasCoordinates(touch, canvas);
-      });
-      
-      // Mouse events with coordinate conversion
-      canvas.addEventListener("click", (e) => {
-        const { x: mouseX, y: mouseY } = getCanvasCoordinates(e, canvas);
-        selectedCreature = null;
-        for (let creature of world.creatures) {
-          if (distance({ x: mouseX, y: mouseY }, creature) < creature.genome.size + 5) {
-            selectedCreature = creature;
-            break;
-          }
-        }
-        if (!selectedCreature) {
-          world.food.push(new Food(mouseX, mouseY));
-        }
-        updateSelectedUI();
-      });
-      canvas.addEventListener("mousemove", (e) => {
-        mouse = getCanvasCoordinates(e, canvas);
-      });
-      
-      /***********************
-       * SIMULATION SETUP    *
-       ***********************/
-      let simulationPaused = false;
-      const world = new World(CONFIG.worldWidth, CONFIG.worldHeight);
-      world.initialize();
-      let selectedCreature = null;
-      
-      document.getElementById("addFoodBtn").addEventListener("click", () => {
-        world.food.push(new Food(mouse.x, mouse.y));
-      });
-      
-      document.getElementById("pauseBtn").addEventListener("click", () => {
-        simulationPaused = !simulationPaused;
-        document.getElementById("pauseBtn").innerText = simulationPaused ? "Resume" : "Pause";
-      });
-      document.getElementById("resetBtn").addEventListener("click", () => {
-        world.initialize();
-        plotHistory = [];
-      });
-      document.getElementById("speedSlider").addEventListener("input", (e) => {
-        CONFIG.dt = parseFloat(e.target.value);
-      });
-      
-      // NEW: Apply parameters from UI inputs and restart simulation (user settings persist)
-      document.getElementById("applyParamsBtn").addEventListener("click", () => {
-        CONFIG.initialPopulation = parseInt(document.getElementById("initPopInput").value);
-        CONFIG.initialFood = parseInt(document.getElementById("initFoodInput").value);
-        CONFIG.metabolismFactor = parseFloat(document.getElementById("metabolismInput").value);
-        CONFIG.foodEnergy = parseFloat(document.getElementById("foodEnergyInput").value);
-        CONFIG.baseFoodRegrowthRate = parseFloat(document.getElementById("foodRegrowthInput").value);
-        CONFIG.reproductionCost = parseFloat(document.getElementById("reproCostInput").value);
-        CONFIG.reproductionCooldown = parseFloat(document.getElementById("reproCooldownInput").value);
-        // Restart simulation with new parameters
-        world.initialize();
-        plotHistory = [];
-      });
-      
-      function updateSelectedUI() {
-        const selectedDiv = document.getElementById("selectedGenome");
-        if (selectedCreature) {
-          selectedDiv.innerText = JSON.stringify(selectedCreature.genome, null, 2);
-        } else {
-          selectedDiv.innerText = "None";
-        }
-        updateLeftPanelStats();
-      }
-      function updateLeftPanelStats() {
-        let preyCount = 0;
-        let carnCount = 0;
-        for (let c of world.creatures) {
-          if (c.genome.carnivorous >= 0.5) carnCount++;
-          else preyCount++;
-        }
-        document.getElementById("carnivores").innerText = carnCount;
-        document.getElementById("herbivores").innerText = preyCount;
-      }
-      
-      /**********************
-       * PLOTTING FUNCTIONS *
-       **********************/
-      const plotCanvas = document.getElementById("plotCanvas");
-      const plotCtx = plotCanvas.getContext("2d");
-      const checkboxContainer = document.getElementById("plotCheckboxes");
-      let plotHistory = [];
-      let lastPlotTime = 0;
-      const checkboxes = checkboxContainer.querySelectorAll("input[type='checkbox']");
-      const parameterColors = {
-        population: "#0f0",
-        food: "#ff0",
-        weather: "#0ff",
-        generation: "#f0f",
-        avgEnergy: "#fa0",
-        preyCount: "#88f",
-        carnivoreCount: "#f44"
-      };
-      function countPreyAndCarnivores() {
-        let preyCount = 0;
-        let carnCount = 0;
-        for (let c of world.creatures) {
-          if (c.genome.carnivorous >= 0.5) carnCount++;
-          else preyCount++;
-        }
-        return { preyCount, carnivoreCount: carnCount };
-      }
-      function samplePlotData() {
-        if (world.time - lastPlotTime < 0.5) return;
-        lastPlotTime = world.time;
-        const { preyCount, carnivoreCount } = countPreyAndCarnivores();
-        let totalEnergy = 0;
-        for (let c of world.creatures) {
-          totalEnergy += c.energy;
-        }
-        let avgEnergy = world.creatures.length ? totalEnergy / world.creatures.length : 0;
-        let dataPoint = {
-          time: world.time,
-          population: world.creatures.length,
-          food: world.food.length,
-          weather: parseFloat(document.getElementById("weather").innerText),
-          generation: world.generation,
-          avgEnergy: avgEnergy,
-          preyCount: preyCount,
-          carnivoreCount: carnivoreCount
-        };
-        plotHistory.push(dataPoint);
-        if (plotHistory.length > 500) {
-          plotHistory.shift();
-        }
-      }
-      function drawPlot() {
-        plotCtx.clearRect(0, 0, plotCanvas.width, plotCanvas.height);
-        plotCtx.strokeStyle = "#777";
-        plotCtx.lineWidth = 1;
-        plotCtx.beginPath();
-        plotCtx.moveTo(0, plotCanvas.height - 20);
-        plotCtx.lineTo(plotCanvas.width, plotCanvas.height - 20);
-        plotCtx.moveTo(30, 0);
-        plotCtx.lineTo(30, plotCanvas.height);
-        plotCtx.stroke();
-        if (plotHistory.length < 2) return;
-        let tMin = plotHistory[0].time;
-        let tMax = plotHistory[plotHistory.length - 1].time;
-        let selectedParams = [];
-        checkboxes.forEach((cb) => {
-          if (cb.checked) selectedParams.push(cb.value);
-        });
-        if (selectedParams.length === 0) return;
-        let vMin = Infinity;
-        let vMax = -Infinity;
-        for (let p of selectedParams) {
-          for (let d of plotHistory) {
-            let val = d[p];
-            if (val < vMin) vMin = val;
-            if (val > vMax) vMax = val;
-          }
-        }
-        let vPadding = (vMax - vMin) * 0.1;
-        vMin -= vPadding;
-        vMax += vPadding;
-        if (vMax === vMin) { vMax += 1; vMin -= 1; }
-        let plotWidth = plotCanvas.width - 40;
-        let plotHeight = plotCanvas.height - 40;
-        for (let param of selectedParams) {
-          plotCtx.strokeStyle = parameterColors[param] || "#fff";
-          plotCtx.lineWidth = 2;
-          plotCtx.beginPath();
-          for (let i = 0; i < plotHistory.length; i++) {
-            let d = plotHistory[i];
-            let x = 30 + ((d.time - tMin) / (tMax - tMin)) * plotWidth;
-            let y = (plotCanvas.height - 20) - ((d[param] - vMin) / (vMax - vMin)) * plotHeight;
-            if (i === 0) {
-              plotCtx.moveTo(x, y);
-            } else {
-              plotCtx.lineTo(x, y);
-            }
-          }
-          plotCtx.stroke();
-        }
-      }
-      
-      /**********************
-       * MINIMAP FUNCTIONS  *
-       **********************/
-      const minimapCanvas = document.getElementById("minimapCanvas");
-      const minimapCtx = minimapCanvas.getContext("2d");
-      function drawMinimap() {
-        let scaleX = minimapCanvas.width / world.width;
-        let scaleY = minimapCanvas.height / world.height;
-        minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
-        for (let row = 0; row < world.terrain.length; row++) {
-          for (let col = 0; col < world.terrain[0].length; col++) {
-            let cell = world.terrain[row][col];
-            minimapCtx.fillStyle = cell.color;
-            minimapCtx.fillRect(col * TERRAIN_CELL_SIZE * scaleX, row * TERRAIN_CELL_SIZE * scaleY, TERRAIN_CELL_SIZE * scaleX, TERRAIN_CELL_SIZE * scaleY);
-          }
-        }
-        minimapCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
-        for (let creature of world.creatures) {
-          minimapCtx.beginPath();
-          minimapCtx.arc(creature.x * scaleX, creature.y * scaleY, 2, 0, Math.PI * 2);
-          minimapCtx.fillStyle = creature.genome.carnivorous >= 0.5 ? "#f44" : "#0f0";
-          minimapCtx.fill();
-        }
-        for (let foodItem of world.food) {
-          minimapCtx.beginPath();
-          minimapCtx.arc(foodItem.x * scaleX, foodItem.y * scaleY, 1.5, 0, Math.PI * 2);
-          minimapCtx.fillStyle = "#ff0";
-          minimapCtx.fill();
-        }
-      }
-      
-      /**********************
-       * MAIN LOOP          *
-       **********************/
-      function loop() {
-        if (!simulationPaused) {
-          world.update(CONFIG.dt);
-        }
-        world.draw(ctx);
-        updateParticles(CONFIG.dt);
-        drawParticles(ctx);
-        updateSelectedUI();
-        samplePlotData();
-        drawPlot();
-        drawMinimap();
-        requestAnimationFrame(loop);
-      }
-      loop();
-    </script>
-  </body>
-</html>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EvoGenesis: Biome Overload — Modular Building Update</title>
+  <style>
+    body { margin: 0; background: #000; color: #eee; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
+    #canvas { display: block; width: 100vw; height: 100vh; }
+
+    #ui { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; z-index: 10; max-width: 320px; }
+    #ui h2, #ui h3 { margin-top: 0; }
+    #ui button, #ui input[type="range"], #ui input[type="number"], #ui input[type="checkbox"] { margin-top: 8px; padding: 5px 10px; font-size: 14px; cursor: pointer; }
+    #selectedGenome { white-space: pre-wrap; font-size: 12px; background: #333; padding: 5px; border-radius: 4px; margin-top: 10px; max-height: 150px; overflow-y: auto; }
+
+    #plotWindow { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; z-index: 10; width: 320px; height: 300px; box-sizing: border-box; }
+    #plotCheckboxes { display: flex; flex-wrap: wrap; margin-bottom: 10px; }
+    #plotCheckboxes label { width: 50%; font-size: 13px; }
+    #plotCanvas { width: 100%; height: 210px; background: #222; border: 1px solid #555; }
+
+    #minimapWindow { position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; z-index: 10; width: 300px; height: 220px; box-sizing: border-box; }
+    #minimapWindow h3 { margin: 0 0 5px 0; font-size: 16px; }
+    #minimapCanvas { width: 100%; height: 180px; background: #111; border: 1px solid #555; }
+
+    #paramPanel { margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.6); border-radius: 8px; }
+    #paramPanel label { display: block; margin-top: 5px; font-size: 13px; }
+    #paramPanel input { width: 100%; }
+    #buildPanel { margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.6); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="ui">
+    <h2>EvoGenesis</h2>
+    <div>Generation: <span id="generation">1</span></div>
+    <div>Population: <span id="population">0</span></div>
+    <div>Food Count: <span id="foodCount">0</span></div>
+    <div>Carnivores: <span id="carnivores">0</span></div>
+    <div>Herbivores: <span id="herbivores">0</span></div>
+    <div>Weather: <span id="weather">0.00</span></div>
+    <div>Resources: <span id="resStats">0 wood · 0 stone</span></div>
+    <div>Bricks: <span id="brickCount">0</span></div>
+
+    <button id="addFoodBtn">Drop Food Here</button>
+
+    <h3>Selected Creature</h3>
+    <div id="selectedGenome">None</div>
+    <small>Click a creature to inspect its genome & inventory.</small>
+
+    <div style="margin-top:8px">
+      <button id="pauseBtn">Pause</button>
+      <button id="resetBtn">Reset Game</button>
+    </div>
+
+    <div>
+      <label for="speedSlider">Sim Speed:</label>
+      <input type="range" id="speedSlider" min="0.05" max="0.5" step="0.05" value="0.1">
+    </div>
+
+    <div id="paramPanel">
+      <h3>Simulation Parameters</h3>
+      <label for="initPopInput">Initial Population:</label>
+      <input type="number" id="initPopInput" value="100" min="1">
+      <label for="initFoodInput">Initial Food:</label>
+      <input type="number" id="initFoodInput" value="10" min="1">
+      <label for="metabolismInput">Metabolism Factor:</label>
+      <input type="number" id="metabolismInput" value="0.01" step="0.001">
+      <label for="foodEnergyInput">Food Energy:</label>
+      <input type="number" id="foodEnergyInput" value="20" step="1">
+      <label for="foodRegrowthInput">Base Food Regrowth Rate:</label>
+      <input type="number" id="foodRegrowthInput" value="0.02" step="0.001">
+      <label for="reproCostInput">Reproduction Cost:</label>
+      <input type="number" id="reproCostInput" value="10" step="1">
+      <label for="reproCooldownInput">Reproduction Cooldown:</label>
+      <input type="number" id="reproCooldownInput" value="5" step="0.1">
+      <button id="applyParamsBtn">Apply Parameters & Restart</button>
+    </div>
+
+    <div id="buildPanel">
+      <h3>Building Controls</h3>
+      <label><input type="checkbox" id="showGridChk"> Show Build Grid</label>
+      <button id="dropWoodBtn">Drop Wood Resource</button>
+      <button id="dropStoneBtn">Drop Stone Resource</button>
+      <button id="clearBricksBtn">Clear All Bricks</button>
+    </div>
+  </div>
+
+  <div id="plotWindow">
+    <div id="plotCheckboxes">
+      <label><input type="checkbox" value="population" checked />Pop</label>
+      <label><input type="checkbox" value="food" checked />Food</label>
+      <label><input type="checkbox" value="weather" checked />Weather</label>
+      <label><input type="checkbox" value="generation" />Gen</label>
+      <label><input type="checkbox" value="avgEnergy" />Avg E</label>
+      <label><input type="checkbox" value="preyCount" checked />Prey</label>
+      <label><input type="checkbox" value="carnivoreCount" checked />Carn</label>
+      <label><input type="checkbox" value="brickCount" checked />Bricks</label>
+    </div>
+    <canvas id="plotCanvas" width="300" height="210"></canvas>
+  </div>
+
+  <div id="minimapWindow">
+    <h3>Minimap</h3>
+    <canvas id="minimapCanvas" width="300" height="180"></canvas>
+  </div>
+
+  <script>
+    /*****************************************************************
+     * Mobile-aware canvas setup
+     *****************************************************************/
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const IS_MOBILE = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const BASE_WORLD = { width: 3000, height: 2000 };
+    const INTERNAL_SCALE = IS_MOBILE ? 0.6 : 1.0; // reduce internal pixels on mobile
+    canvas.width  = Math.round(BASE_WORLD.width  * INTERNAL_SCALE);
+    canvas.height = Math.round(BASE_WORLD.height * INTERNAL_SCALE);
+    function resizeCanvasCSS(){ canvas.style.width = window.innerWidth+'px'; canvas.style.height = window.innerHeight+'px'; }
+    window.addEventListener('resize', resizeCanvasCSS); resizeCanvasCSS();
+
+    /***************************
+     * CONFIGURATION CONSTANTS *
+     ***************************/
+    const CONFIG = {
+      worldWidth: canvas.width,
+      worldHeight: canvas.height,
+      initialPopulation: 100,
+      initialFood: 10,
+      metabolismFactor: 0.01,
+      foodEnergy: 20,
+      baseFoodRegrowthRate: 0.02,
+      reproductionCost: 10,
+      reproductionCooldown: 5,
+      sizeRange: [2, 8],
+      speedRange: [1, 100],
+      metabolismRange: [0.1, 20],
+      aggressionRange: [0, 1],
+      reproThresholdRange: [100, 200],
+      lifespanRange: [100, 300],
+      carnivorousRange: [0, 1],
+      visionRange: [50, 150],
+      legsRange: [0, 10],
+      bodySegmentsRange: [1, 8],
+      shellRange: [0, 5],
+      sexualReproChance: 0.5,
+      cannibalismBonus: 0.5,
+      dt: 0.1,
+      weatherPeriod: 30,
+      corpseEnergyFraction: 0.5,
+      ALLOW_ASEXUAL: 0
+    };
+
+    // Building & resources
+    const TERRAIN_CELL_SIZE = 50;
+    const GRID_SIZE = 20; // brick grid size in world units
+    const RESOURCE_TYPES = {
+      wood:  { color: '#6b4', radius: 6, yieldPerHit: 5 },
+      stone: { color: '#bbb', radius: 6, yieldPerHit: 3 }
+    };
+    const BRICK_TYPES = {
+      wood:  { color: '#5a3', hp: 10 },
+      stone: { color: '#888', hp: 20 }
+    };
+
+    const TERRAIN_TYPES = [
+      { type: 'plains',   color: '#555', speed: 1.0, food: 1.0 },
+      { type: 'forest',   color: '#3a5', speed: 0.8, food: 1.2 },
+      { type: 'swamp',    color: '#336', speed: 0.6, food: 0.8 },
+      { type: 'mountain', color: '#777', speed: 0.7, food: 0.5 }
+    ];
+
+    // Particles for fun
+    let particles = [];
+
+    /**********************
+     * UTILITY FUNCTIONS  *
+     **********************/
+    function randomInRange(min, max) { return Math.random() * (max - min) + min; }
+    function randomIntInRange(min, max) { return Math.floor(randomInRange(min, max + 1)); }
+    function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
+    function distance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+    function keyCR(c, r) { return c+','+r; }
+
+    function areGenomesSimilar(g1, g2) {
+      const fields = [
+        ['size', CONFIG.sizeRange], ['speed', CONFIG.speedRange], ['aggression', CONFIG.aggressionRange],
+        ['reproductionThreshold', CONFIG.reproThresholdRange], ['lifespan', CONFIG.lifespanRange],
+        ['vision', CONFIG.visionRange], ['legs', CONFIG.legsRange], ['bodySegments', CONFIG.bodySegmentsRange], ['shell', CONFIG.shellRange]
+      ];
+      let sum = 0; for (const [k, rng] of fields) { sum += Math.abs(g1[k] - g2[k]) / Math.max(1e-6, rng[1]-rng[0]); }
+      return (sum / fields.length) < 0.15;
+    }
+
+    function getCanvasCoordinates(evt, el){ const rect = el.getBoundingClientRect(); const sx = el.width/rect.width, sy = el.height/rect.height; return { x: (evt.clientX-rect.left)*sx, y: (evt.clientY-rect.top)*sy }; }
+
+    /*************************
+     * PARTICLES             *
+     *************************/
+    class Particle { constructor(x,y,vx,vy,life,rad,color){ this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.life=life; this.rad=rad; this.color=color; } update(dt){ this.x+=this.vx*dt; this.y+=this.vy*dt; this.life-=dt; } draw(ctx){ ctx.beginPath(); ctx.arc(this.x,this.y,this.rad,0,Math.PI*2); ctx.fillStyle=this.color; ctx.fill(); } }
+    function spawnParticles(x,y,base){ const n=Math.floor(Math.random()*5)+5; for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=Math.random()*50+20; const vx=Math.cos(a)*s, vy=Math.sin(a)*s; const life=Math.random()*0.5+0.5; const rad=Math.random()*(base/10)+1; particles.push(new Particle(x,y,vx,vy,life,rad,'#fc3')); } }
+    function updateParticles(dt){ particles.forEach(p=>p.update(dt)); particles = particles.filter(p=>p.life>0); }
+    function drawParticles(ctx){ particles.forEach(p=>p.draw(ctx)); }
+
+    /***********************
+     * GENOME & TERRAIN    *
+     ***********************/
+    function randomGenome(){ const carn = Math.random()<0.5?0:1; let sp = randomInRange(...CONFIG.speedRange); if (carn>=1) sp*=1.2; return { size:randomInRange(...CONFIG.sizeRange), speed:sp, metabolism:randomInRange(...CONFIG.metabolismRange), aggression:randomInRange(...CONFIG.aggressionRange), reproductionThreshold:randomInRange(...CONFIG.reproThresholdRange), lifespan:randomInRange(...CONFIG.lifespanRange), carnivorous:carn, vision:randomInRange(...CONFIG.visionRange), legs:randomIntInRange(CONFIG.legsRange[0],CONFIG.legsRange[1]), bodySegments:randomIntInRange(CONFIG.bodySegmentsRange[0],CONFIG.bodySegmentsRange[1]), shell:randomInRange(...CONFIG.shellRange) }; }
+    function crossoverGenome(a,b){ return { size:(a.size+b.size)/2, speed:(a.speed+b.speed)/2, metabolism:(a.metabolism+b.metabolism)/2, aggression:(a.aggression+b.aggression)/2, reproductionThreshold:(a.reproductionThreshold+b.reproductionThreshold)/2, lifespan:(a.lifespan+b.lifespan)/2, carnivorous: Math.random()<0.5?a.carnivorous:b.carnivorous, vision:(a.vision+b.vision)/2, legs:Math.floor((a.legs+b.legs)/2), bodySegments:Math.floor((a.bodySegments+b.bodySegments)/2), shell:(a.shell+b.shell)/2 }; }
+    function mutateParam(v, rng, rate=0.1, int=false){ if (Math.random()<0.2){ let nv=clamp(v+(Math.random()-0.5)*rate*(rng[1]-rng[0]), rng[0], rng[1]); return int? Math.round(nv): nv; } return v; }
+    function mutateGenome(g){ return { size:mutateParam(g.size,CONFIG.sizeRange), speed:mutateParam(g.speed,CONFIG.speedRange), metabolism:mutateParam(g.metabolism,CONFIG.metabolismRange), aggression:mutateParam(g.aggression,CONFIG.aggressionRange), reproductionThreshold:mutateParam(g.reproductionThreshold,CONFIG.reproThresholdRange), lifespan:mutateParam(g.lifespan,CONFIG.lifespanRange), carnivorous:(Math.random()<0.05? (g.carnivorous>=0.5?0:1): g.carnivorous), vision:g.vision, legs:mutateParam(g.legs,CONFIG.legsRange,0.1,true), bodySegments:mutateParam(g.bodySegments,CONFIG.bodySegmentsRange,0.1,true), shell:mutateParam(g.shell,CONFIG.shellRange) }; }
+
+    function generateTerrain(w,h,cs){ const cols=Math.ceil(w/cs), rows=Math.ceil(h/cs), bs=5, bCols=Math.ceil(cols/bs), bRows=Math.ceil(rows/bs); const biomeGrid=Array.from({length:bRows},()=>Array.from({length:bCols},()=>TERRAIN_TYPES[randomIntInRange(0,TERRAIN_TYPES.length-1)])); const terrain=Array.from({length:rows},(_,r)=>{ const br=Math.floor(r/bs); return Array.from({length:cols},(_,c)=>{ const bc=Math.floor(c/bs); const b=biomeGrid[br][bc]; return {type:b.type,color:b.color,speed:b.speed,food:b.food}; });}); return terrain; }
+
+    /**********************
+     * RESOURCES & BRICKS *
+     **********************/
+    class ResourceNode {
+      constructor(x,y,type,amount){ this.x=x; this.y=y; this.type=type; this.amount=amount; this.radius=RESOURCE_TYPES[type].radius; }
+      draw(ctx){ ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fillStyle=RESOURCE_TYPES[this.type].color; ctx.fill(); }
+    }
+
+    class Brick {
+      constructor(type,col,row){ this.type=type; this.col=col; this.row=row; this.hp=BRICK_TYPES[type].hp; }
+      get x(){ return this.col*GRID_SIZE + GRID_SIZE/2; }
+      get y(){ return this.row*GRID_SIZE + GRID_SIZE/2; }
+      draw(ctx){ ctx.fillStyle = BRICK_TYPES[this.type].color; ctx.fillRect(this.col*GRID_SIZE, this.row*GRID_SIZE, GRID_SIZE, GRID_SIZE); ctx.strokeStyle='#222'; ctx.lineWidth=1; ctx.strokeRect(this.col*GRID_SIZE+0.5, this.row*GRID_SIZE+0.5, GRID_SIZE-1, GRID_SIZE-1); }
+    }
+
+    /**********************
+     * FOOD & CORPSES     *
+     **********************/
+    class Food { constructor(x,y,energy=CONFIG.foodEnergy){ this.x=x; this.y=y; this.energy=energy; this.radius=4; } draw(ctx){ ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fillStyle='#0a0'; ctx.fill(); } }
+    class Corpse { constructor(x,y,energy,isPred=false){ this.x=x; this.y=y; this.energy=energy; this.radius=6; this.isPredator=isPred; this.age=0; this.maxAge=5; } update(dt){ this.age+=dt; } draw(ctx){ ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fillStyle='#a33'; ctx.fill(); } }
+
+    /**********************
+     * PROJECTILES        *
+     **********************/
+    class Projectile { constructor(x,y,vx,vy,damage){ this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.damage=damage; this.radius=3; this.lifetime=2; } update(dt,world){ this.x+=this.vx*dt; this.y+=this.vy*dt; this.lifetime-=dt; for(const cr of world.creatures){ if(!cr.alive) continue; if(cr.genome.carnivorous<0.5){ if(distance(this,cr)<this.radius+cr.genome.size/2){ cr.energy-=this.damage; this.lifetime=0; break; } } } } draw(ctx){ ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fillStyle='#f00'; ctx.fill(); } }
+
+    /**********************
+     * CREATURE           *
+     **********************/
+    let CREATURE_ID_SEQ = 1;
+    class Creature {
+      constructor(genome,x,y,generation=1){ this.id=CREATURE_ID_SEQ++; this.genome=genome; this.x=x; this.y=y; this.vx=0; this.vy=0; this.energy=genome.reproductionThreshold/2; this.age=0; this.alive=true; this.generation=generation; this.reproductionCooldown=0; this.wanderAngle=Math.random()*Math.PI*2; 
+        // Gathering/building state
+        this.inventory = { wood:0, stone:0 };
+        this.maxCarry = Math.max(5, Math.round(genome.size*2 + genome.legs));
+        this.basePos = null;         // {col,row} origin for structure
+        this.buildFrontier = [];     // queue of candidate {col,row}
+        this.task = 'forage';        // 'forage' | 'gather' | 'build' | 'mate' | 'hunt'
+      }
+
+      // Decide if we feel like building: higher when energy is high or weather is bad
+      wantsToBuild(world){
+        const comfyEnergy = this.energy > 1.2*this.genome.reproductionThreshold;
+        const badWeather = world.weather < 0.35; // cold season => shelter urge
+        return comfyEnergy || badWeather;
+      }
+
+      // Choose nearest resource node by type preference
+      findNearestResource(world){
+        let best=null, bestD=Infinity; for(const r of world.resources){ const d=distance(this,r); if(d<bestD){ best=r; bestD=d; } } return best;
+      }
+
+      ensureBase(world){
+        if (this.basePos) return;
+        const c = clamp(Math.floor(this.x/GRID_SIZE), 0, Math.floor(world.width/GRID_SIZE)-1);
+        const r = clamp(Math.floor(this.y/GRID_SIZE), 0, Math.floor(world.height/GRID_SIZE)-1);
+        this.basePos = {col:c, row:r};
+        // seed frontier with base cell and its 4-neighbors
+        this.buildFrontier = [];
+        const seed = [ [0,0],[1,0],[-1,0],[0,1],[0,-1] ];
+        for(const [dc,dr] of seed){ const nc=c+dc, nr=r+dr; if(!world.isGridOccupied(nc,nr)) this.buildFrontier.push({col:nc,row:nr}); }
+      }
+
+      nextBuildCell(world){
+        // pop until we find a free in-bounds cell; when we place, push its neighbors
+        while(this.buildFrontier.length){
+          const cell = this.buildFrontier.shift();
+          if(!world.isInGrid(cell.col, cell.row)) continue;
+          if(!world.isGridOccupied(cell.col, cell.row)) return cell;
+        }
+        // if frontier exhausted, expand around base randomly
+        const base = this.basePos; if (!base) return null;
+        for (let tries=0; tries<20; tries++){
+          const nc = base.col + randomIntInRange(-5,5);
+          const nr = base.row + randomIntInRange(-5,5);
+          if (world.isInGrid(nc,nr) && !world.isGridOccupied(nc,nr)) return {col:nc,row:nr};
+        }
+        return null;
+      }
+
+      harvest(world, node, dt){
+        const rate = (1 + this.genome.legs*0.5 + this.genome.size*0.3); // units/sec
+        const request = rate*dt; const yieldUnit = RESOURCE_TYPES[node.type].yieldPerHit;
+        if (node.amount <= 0) return 0;
+        const taken = Math.min(request, node.amount);
+        node.amount -= taken;
+        // convert to discrete items (e.g., wood pieces). Accumulate fractional into buffer by rounding.
+        const items = Math.floor(taken / yieldUnit);
+        if (items>0) {
+          const free = this.maxCarry - (this.inventory.wood + this.inventory.stone);
+          const store = Math.min(items, free);
+          if (store>0) this.inventory[node.type] += store;
+          return store;
+        }
+        return 0;
+      }
+
+      placeBrickIfPossible(world){
+        // Prefer stone over wood for durability; otherwise use what we have
+        const type = (this.inventory.stone>0)? 'stone' : (this.inventory.wood>0? 'wood' : null);
+        if (!type) return false;
+        this.ensureBase(world);
+        const cell = this.nextBuildCell(world);
+        if (!cell) return false;
+        const targetX = cell.col*GRID_SIZE + GRID_SIZE/2;
+        const targetY = cell.row*GRID_SIZE + GRID_SIZE/2;
+        const d = Math.hypot(targetX - this.x, targetY - this.y);
+        if (d < Math.max(6, this.genome.size)){
+          // Place the brick
+          world.addBrick(new Brick(type, cell.col, cell.row));
+          if (type==='stone') this.inventory.stone--; else this.inventory.wood--;
+          // Expand frontier by adding neighbors of this placed cell
+          const neigh = [[1,0],[-1,0],[0,1],[0,-1]];
+          for(const [dc,dr] of neigh){ const nc=cell.col+dc, nr=cell.row+dr; if(world.isInGrid(nc,nr) && !world.isGridOccupied(nc,nr)) this.buildFrontier.push({col:nc,row:nr}); }
+          return true;
+        }
+        // Move toward build cell
+        this.seek(targetX, targetY, world, 1.1);
+        return false;
+      }
+
+      seek(tx,ty,world,spdMul=1){
+        const ang = Math.atan2(ty - this.y, tx - this.x);
+        const desiredVx = Math.cos(ang) * this.genome.speed * spdMul;
+        const desiredVy = Math.sin(ang) * this.genome.speed * spdMul;
+        const steering = 0.05;
+        // Terrain speed
+        let cellCol = clamp(Math.floor(this.x / TERRAIN_CELL_SIZE), 0, world.terrain[0].length-1);
+        let cellRow = clamp(Math.floor(this.y / TERRAIN_CELL_SIZE), 0, world.terrain.length-1);
+        const speedMultiplier = world.terrain[cellRow][cellCol].speed;
+        this.vx = (1-steering)*this.vx + steering*desiredVx*speedMultiplier;
+        this.vy = (1-steering)*this.vy + steering*desiredVy*speedMultiplier;
+        this.x += this.vx * CONFIG.dt; this.y += this.vy * CONFIG.dt;
+        this.x = clamp(this.x, 20, world.width-20); this.y = clamp(this.y, 20, world.height-20);
+      }
+
+      update(dt, world){
+        if (!this.alive) return;
+        this.age += dt; this.reproductionCooldown = Math.max(0, this.reproductionCooldown - dt);
+        this.energy -= this.genome.metabolism * CONFIG.metabolismFactor * dt;
+        if (this.energy <= 0 || this.age > this.genome.lifespan){ this.alive=false; spawnParticles(this.x,this.y,this.genome.size); const left=Math.max(0,this.energy)*CONFIG.corpseEnergyFraction; if (left>5) world.corpses.push(new Corpse(this.x,this.y,left,this.genome.carnivorous>=0.5)); return; }
+
+        // Decide task: simple priority — survive, then build/mate/hunt
+        const carrying = this.inventory.wood + this.inventory.stone;
+        const needFood = this.energy < 0.8*this.genome.reproductionThreshold;
+        const canRepro = this.energy > this.genome.reproductionThreshold && this.reproductionCooldown<=0;
+        const buildMood = this.wantsToBuild(world);
+
+        if (needFood && this.genome.carnivorous < 0.5) this.task = 'forage';
+        else if (this.genome.carnivorous >= 0.5 && needFood) this.task = 'hunt';
+        else if (buildMood && (carrying>0 || world.resources.length>0)) this.task = carrying>0 ? 'build' : 'gather';
+        else if (canRepro) this.task = 'mate';
+        else this.task = 'forage';
+
+        // Execute task
+        if (this.task === 'forage'){
+          // Herbivore: seek nearby food
+          if (this.genome.carnivorous < 0.5){
+            let target=null, best=Infinity; for(const f of world.food){ const d=distance(this,f); if (d<best && d < this.genome.vision){ best=d; target=f; } }
+            if (target){ this.seek(target.x, target.y, world, 1); if (distance(this,target) < this.genome.size + target.radius){ this.energy += target.energy; world.removeFood(target); } }
+            else { this.wander(world); }
+          } else { this.wander(world); }
+        }
+        else if (this.task === 'hunt'){
+          // Predator seeks corpse first, then prey
+          let target=null, best=Infinity;
+          for(const c of world.corpses){ const d=distance(this,c); if(d<best && d < this.genome.vision*1.5){ best=d; target=c; } }
+          if (!target){ for(const other of world.creatures){ if(other===this || !other.alive) continue; if(other.genome.size<=this.genome.size){ const d=distance(this,other); if(d<best && d < this.genome.vision*1.5){ best=d; target=other; } } } }
+          if (target){
+            this.seek(target.x, target.y, world, 1.3);
+            const d=distance(this,target);
+            if (target instanceof Corpse && d < this.genome.size + target.radius){ if (!target.isPredator){ this.energy += target.energy; world.removeCorpse(target); } }
+            if (target instanceof Creature && d < this.genome.size + target.genome.size){
+              if (target.genome.size <= this.genome.size){
+                if (!(target.genome.carnivorous>=0.5 && areGenomesSimilar(this.genome, target.genome))){
+                  let fightChance = this.genome.aggression * (0.5 + 0.5*((this.genome.size - target.genome.size)/Math.max(1e-6,this.genome.size)));
+                  fightChance *= 1.5; if (target.genome.carnivorous < 0.5) fightChance *= 1.2;
+                  if (Math.random() < fightChance){ this.energy += target.energy * CONFIG.cannibalismBonus; target.alive=false; spawnParticles(target.x,target.y,target.genome.size); const left=Math.max(0,target.energy)*CONFIG.corpseEnergyFraction; if(left>5) world.corpses.push(new Corpse(target.x,target.y,left,target.genome.carnivorous>=0.5)); }
+                }
+              }
+            }
+          } else this.wander(world);
+        }
+        else if (this.task === 'gather'){
+          const node = this.findNearestResource(world);
+          if (node){ this.seek(node.x, node.y, world, 1); if (distance(this,node) < this.genome.size + node.radius + 2){ const stored = this.harvest(world,node,dt); if (node.amount<=0){ world.removeResource(node); spawnParticles(node.x,node.y,6); } if ((this.inventory.wood+this.inventory.stone) >= this.maxCarry) this.task='build'; } }
+          else this.wander(world);
+        }
+        else if (this.task === 'build'){
+          if (!this.placeBrickIfPossible(world)){
+            // If we couldn't place (far or no cell), keep moving toward cell or switch to gather if out of mats
+            if ((this.inventory.wood+this.inventory.stone)===0) this.task='gather';
+          }
+        }
+        else if (this.task === 'mate'){
+          let mate=null, best=Infinity; for(const other of world.creatures){ if(other===this||!other.alive) continue; if (other.energy>other.genome.reproductionThreshold){ const d=distance(this,other); if (d<best && d<100){ best=d; mate=other; } } }
+          if (mate){ this.seek(mate.x, mate.y, world, 1); if (distance(this,mate) < Math.max(10,this.genome.size)){ if (Math.random()<CONFIG.sexualReproChance){ const child = mutateGenome(crossoverGenome(this.genome, mate.genome)); world.addCreature(new Creature(child, this.x, this.y, Math.max(this.generation,mate.generation)+1)); this.energy-=CONFIG.reproductionCost; mate.energy-=CONFIG.reproductionCost; this.reproductionCooldown=CONFIG.reproductionCooldown; } } }
+          else this.wander(world);
+        }
+      }
+
+      wander(world){
+        this.wanderAngle += (Math.random()-0.5)*0.1; const dvx=Math.cos(this.wanderAngle)*this.genome.speed; const dvy=Math.sin(this.wanderAngle)*this.genome.speed; const steering=0.05;
+        let cellCol = clamp(Math.floor(this.x / TERRAIN_CELL_SIZE), 0, world.terrain[0].length-1); let cellRow = clamp(Math.floor(this.y / TERRAIN_CELL_SIZE), 0, world.terrain.length-1); const spMul = world.terrain[cellRow][cellCol].speed;
+        this.vx = (1-steering)*this.vx + steering*dvx*spMul; this.vy = (1-steering)*this.vy + steering*dvy*spMul; this.x += this.vx*CONFIG.dt; this.y += this.vy*CONFIG.dt; this.x = clamp(this.x,20,world.width-20); this.y = clamp(this.y,20,world.height-20);
+      }
+
+      draw(ctx){ if (!this.alive) return; const headR=this.genome.size/2, bodyLen=this.genome.size, totalLen=this.genome.bodySegments*bodyLen; const eRatio=clamp(this.energy/this.genome.reproductionThreshold,0,1); const r=Math.floor(255*(1-eRatio)), g=Math.floor(255*eRatio), b=Math.min(255,this.generation*20); const color=`rgb(${r},${g},${b})`; ctx.save(); ctx.translate(this.x,this.y); if (this.genome.shell>0.5){ ctx.beginPath(); ctx.arc(0,-totalLen, headR*2,0,Math.PI*2); ctx.strokeStyle='#bbb'; ctx.lineWidth=2; ctx.stroke(); } ctx.beginPath(); ctx.arc(0,-totalLen, headR,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0,-totalLen+headR); ctx.lineTo(0,0); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-totalLen+headR*1.5); ctx.lineTo(-headR,-totalLen+headR*1.5+headR); ctx.moveTo(0,-totalLen+headR*1.5); ctx.lineTo(headR,-totalLen+headR*1.5+headR); ctx.stroke(); const nLegs=this.genome.legs; for(let i=0;i<nLegs;i++){ ctx.beginPath(); ctx.moveTo(0,0); const ang=-Math.PI/4 + (nLegs>1? (i/(nLegs-1))*(Math.PI/2):0); const lx=Math.cos(ang)*bodyLen, ly=Math.sin(ang)*bodyLen; ctx.lineTo(lx,ly); ctx.stroke(); } // inventory ring
+        const inv = this.inventory.wood + this.inventory.stone; if (inv>0){ const frac = inv/this.maxCarry; ctx.beginPath(); ctx.arc(0,-totalLen, headR+3, -Math.PI/2, -Math.PI/2 + frac*2*Math.PI); ctx.strokeStyle = '#fffa'; ctx.lineWidth = 2; ctx.stroke(); }
+        ctx.restore(); }
+    }
+
+    /**********************
+     * WORLD              *
+     **********************/
+    class World {
+      constructor(w,h){ this.width=w; this.height=h; this.creatures=[]; this.food=[]; this.corpses=[]; this.projectiles=[]; this.terrain=generateTerrain(w,h,TERRAIN_CELL_SIZE); this.generation=1; this.time=0; this.foodSpawnTimer=0; this.weather=0; this.resources=[]; this.bricks=[]; this.gridOcc=new Map(); }
+
+      initialize(){ this.creatures=[]; this.food=[]; this.corpses=[]; this.projectiles=[]; this.terrain=generateTerrain(this.width,this.height,TERRAIN_CELL_SIZE); this.generation=1; this.resources=[]; this.bricks=[]; this.gridOcc.clear();
+        for (let i=0;i<CONFIG.initialPopulation;i++){ const g=randomGenome(); const x=randomInRange(50,this.width-50), y=randomInRange(50,this.height-50); this.creatures.push(new Creature(g,x,y,1)); }
+        for (let i=0;i<CONFIG.initialFood;i++){ const x=randomInRange(20,this.width-20), y=randomInRange(20,this.height-20); this.food.push(new Food(x,y)); }
+        // Seed some resources
+        for (let i=0;i<120;i++){ this.spawnResource('wood'); }
+        for (let i=0;i<80;i++){ this.spawnResource('stone'); }
+        this.foodSpawnTimer=0; document.getElementById('generation').innerText=this.generation; }
+
+      isInGrid(c,r){ return c>=0 && r>=0 && c < Math.floor(this.width/GRID_SIZE) && r < Math.floor(this.height/GRID_SIZE); }
+      isGridOccupied(c,r){ return this.gridOcc.has(keyCR(c,r)); }
+      addBrick(br){ const k=keyCR(br.col, br.row); if (this.gridOcc.has(k)) return false; this.bricks.push(br); this.gridOcc.set(k, br); return true; }
+      clearBricks(){ this.bricks=[]; this.gridOcc.clear(); }
+
+      addCreature(c){ this.creatures.push(c); }
+      removeFood(f){ this.food = this.food.filter(x=>x!==f); }
+      removeCorpse(c){ this.corpses = this.corpses.filter(x=>x!==c); }
+
+      spawnResource(type){ const x=randomInRange(20,this.width-20), y=randomInRange(20,this.height-20); const amount = type==='wood'? 200+Math.random()*200 : 300+Math.random()*300; this.resources.push(new ResourceNode(x,y,type,amount)); }
+      removeResource(n){ this.resources = this.resources.filter(x=>x!==n); }
+
+      update(dt){ this.time += dt; this.weather = (Math.sin((2*Math.PI*this.time)/CONFIG.weatherPeriod)+1)/2; document.getElementById('weather').innerText=this.weather.toFixed(2);
+        for(const cr of this.creatures) cr.update(dt,this); for(const co of this.corpses) co.update(dt); this.corpses = this.corpses.filter(c=>c.age<=c.maxAge); for(const p of this.projectiles) p.update(dt,this); this.projectiles = this.projectiles.filter(p=>p.lifetime>0);
+        // Food regrowth
+        this.foodSpawnTimer += dt; if (this.foodSpawnTimer>=3){ for(let row=0;row<this.terrain.length;row++){ for(let col=0; col<this.terrain[0].length; col++){ const cell=this.terrain[row][col]; if (Math.random() < CONFIG.baseFoodRegrowthRate*cell.food*this.weather){ const cellX=col*TERRAIN_CELL_SIZE, cellY=row*TERRAIN_CELL_SIZE; const x=randomInRange(cellX, cellX+TERRAIN_CELL_SIZE), y=randomInRange(cellY, cellY+TERRAIN_CELL_SIZE); this.food.push(new Food(x,y)); } } } this.foodSpawnTimer=0; }
+        // Extinction check
+        this.creatures = this.creatures.filter(c=>c.alive); if (this.creatures.length>0){ const minGen=Math.min(...this.creatures.map(c=>c.generation)); if (minGen>this.generation){ this.generation=minGen; document.getElementById('generation').innerText=this.generation; } } else { this.generation=1; document.getElementById('generation').innerText=this.generation; this.initialize(); }
+        // UI counters
+        document.getElementById('population').innerText=this.creatures.length; document.getElementById('foodCount').innerText=this.food.length; document.getElementById('brickCount').innerText=this.bricks.length; document.getElementById('resStats').innerText = `${this.resources.filter(r=>r.type==='wood').length} wood · ${this.resources.filter(r=>r.type==='stone').length} stone`;
+      }
+
+      draw(ctx){
+        // Terrain
+        for(let r=0;r<this.terrain.length;r++){ for(let c=0;c<this.terrain[0].length;c++){ const cell=this.terrain[r][c]; ctx.fillStyle=cell.color; ctx.fillRect(c*TERRAIN_CELL_SIZE, r*TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE); } }
+        ctx.fillStyle='rgba(34,34,34,0.8)'; ctx.fillRect(0,0,this.width,this.height);
+        // Optional build grid overlay
+        if (document.getElementById('showGridChk').checked){ ctx.strokeStyle='#333'; ctx.lineWidth=1; for(let x=0;x<this.width;x+=GRID_SIZE){ ctx.beginPath(); ctx.moveTo(x+0.5,0); ctx.lineTo(x+0.5,this.height); ctx.stroke(); } for(let y=0;y<this.height;y+=GRID_SIZE){ ctx.beginPath(); ctx.moveTo(0,y+0.5); ctx.lineTo(this.width,y+0.5); ctx.stroke(); } }
+        // Bricks
+        for (const b of this.bricks) b.draw(ctx);
+        // Entities
+        for (const f of this.food) f.draw(ctx); for (const c of this.corpses) c.draw(ctx); for (const p of this.projectiles) p.draw(ctx); for (const cr of this.creatures) cr.draw(ctx);
+        // Resources on top for visibility
+        for (const r of this.resources) r.draw(ctx);
+      }
+    }
+
+    /************************************
+     * INPUT                            *
+     ************************************/
+    let mouse = {x:0,y:0};
+    canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); const t=e.touches[0]; const {x,y}=getCanvasCoordinates(t,canvas); selectedCreature=null; for(const cr of world.creatures){ if (distance({x,y},cr) < cr.genome.size+5){ selectedCreature=cr; break; } } if(!selectedCreature) world.food.push(new Food(x,y)); updateSelectedUI(true); }, {passive:false});
+    canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); const t=e.touches[0]; mouse=getCanvasCoordinates(t,canvas); }, {passive:false});
+    canvas.addEventListener('click', (e)=>{ const {x,y}=getCanvasCoordinates(e,canvas); selectedCreature=null; for(const cr of world.creatures){ if (distance({x,y},cr) < cr.genome.size+5){ selectedCreature=cr; break; } } if(!selectedCreature) world.food.push(new Food(x,y)); updateSelectedUI(true); });
+    canvas.addEventListener('mousemove', (e)=>{ mouse=getCanvasCoordinates(e,canvas); });
+
+    /***********************
+     * SIM SETUP & UI      *
+     ***********************/
+    let simulationPaused=false; const world=new World(CONFIG.worldWidth, CONFIG.worldHeight); world.initialize(); let selectedCreature=null;
+    document.getElementById('addFoodBtn').addEventListener('click', ()=>{ world.food.push(new Food(mouse.x, mouse.y)); });
+    document.getElementById('pauseBtn').addEventListener('click', ()=>{ simulationPaused=!simulationPaused; document.getElementById('pauseBtn').innerText = simulationPaused? 'Resume':'Pause'; });
+    document.getElementById('resetBtn').addEventListener('click', ()=>{ world.initialize(); plotHistory=[]; selectedCreature=null; updateSelectedUI(true); });
+    document.getElementById('speedSlider').addEventListener('input', (e)=>{ CONFIG.dt=parseFloat(e.target.value); });
+    document.getElementById('applyParamsBtn').addEventListener('click', ()=>{ CONFIG.initialPopulation=parseInt(document.getElementById('initPopInput').value,10); CONFIG.initialFood=parseInt(document.getElementById('initFoodInput').value,10); CONFIG.metabolismFactor=parseFloat(document.getElementById('metabolismInput').value); CONFIG.foodEnergy=parseFloat(document.getElementById('foodEnergyInput').value); CONFIG.baseFoodRegrowthRate=parseFloat(document.getElementById('foodRegrowthInput').value); CONFIG.reproductionCost=parseFloat(document.getElementById('reproCostInput').value); CONFIG.reproductionCooldown=parseFloat(document.getElementById('reproCooldownInput').value); world.initialize(); plotHistory=[]; selectedCreature=null; updateSelectedUI(true); });
+    document.getElementById('dropWoodBtn').addEventListener('click', ()=>{ world.resources.push(new ResourceNode(mouse.x, mouse.y, 'wood', 400)); });
+    document.getElementById('dropStoneBtn').addEventListener('click', ()=>{ world.resources.push(new ResourceNode(mouse.x, mouse.y, 'stone', 500)); });
+    document.getElementById('clearBricksBtn').addEventListener('click', ()=>{ world.clearBricks(); });
+
+    function updateLeftPanelStats(){ let prey=0,carn=0; for(const c of world.creatures){ if(c.genome.carnivorous>=0.5) carn++; else prey++; } document.getElementById('carnivores').innerText=carn; document.getElementById('herbivores').innerText=prey; }
+    let lastUIUpdate=0; const UI_INTERVAL_MS=200;
+    function updateSelectedUI(force=false){ const now=performance.now(); if(!force && (now-lastUIUpdate)<UI_INTERVAL_MS) return; lastUIUpdate=now; const sel=document.getElementById('selectedGenome'); if(selectedCreature){ const info={...selectedCreature.genome, inventory:selectedCreature.inventory, maxCarry:selectedCreature.maxCarry, task:selectedCreature.task}; sel.innerText=JSON.stringify(info,null,2); } else sel.innerText='None'; updateLeftPanelStats(); }
+
+    /**********************
+     * PLOTTING           *
+     **********************/
+    const plotCanvas=document.getElementById('plotCanvas'); const plotCtx=plotCanvas.getContext('2d'); const checkboxContainer=document.getElementById('plotCheckboxes'); let plotHistory=[]; let lastPlotTime=0; const checkboxes=checkboxContainer.querySelectorAll("input[type='checkbox']"); const parameterColors={ population:'#0f0', food:'#ff0', weather:'#0ff', generation:'#f0f', avgEnergy:'#fa0', preyCount:'#88f', carnivoreCount:'#f44', brickCount:'#0af' };
+    function countPreyAndCarnivores(){ let prey=0,carn=0; for(const c of world.creatures){ if(c.genome.carnivorous>=0.5) carn++; else prey++; } return {preyCount:prey, carnivoreCount:carn}; }
+    function samplePlotData(){ if(world.time-lastPlotTime<0.5) return; lastPlotTime=world.time; const {preyCount,carnivoreCount}=countPreyAndCarnivores(); let totE=0; for(const c of world.creatures) totE+=c.energy; const avgE=world.creatures.length? totE/world.creatures.length : 0; plotHistory.push({ time:world.time, population:world.creatures.length, food:world.food.length, weather:world.weather, generation:world.generation, avgEnergy:avgE, preyCount, carnivoreCount, brickCount: world.bricks.length }); if(plotHistory.length>500) plotHistory.shift(); }
+    function drawPlot(){ plotCtx.clearRect(0,0,plotCanvas.width,plotCanvas.height); plotCtx.strokeStyle='#777'; plotCtx.lineWidth=1; plotCtx.beginPath(); plotCtx.moveTo(0, plotCanvas.height-20); plotCtx.lineTo(plotCanvas.width, plotCanvas.height-20); plotCtx.moveTo(30,0); plotCtx.lineTo(30, plotCanvas.height); plotCtx.stroke(); if(plotHistory.length<2) return; const tMin=plotHistory[0].time, tMax=plotHistory[plotHistory.length-1].time; const sel=[]; checkboxes.forEach(cb=>{ if(cb.checked) sel.push(cb.value); }); if(!sel.length) return; let vMin=Infinity, vMax=-Infinity; for(const p of sel){ for(const d of plotHistory){ const v=d[p]; if(v<vMin) vMin=v; if(v>vMax) vMax=v; } } const pad=(vMax-vMin)*0.1; vMin-=pad; vMax+=pad; if(vMax===vMin){ vMax+=1; vMin-=1; } const plotW=plotCanvas.width-40, plotH=plotCanvas.height-40; for(const p of sel){ plotCtx.strokeStyle=parameterColors[p]||'#fff'; plotCtx.lineWidth=2; plotCtx.beginPath(); for(let i=0;i<plotHistory.length;i++){ const d=plotHistory[i]; const x=30+((d.time-tMin)/(tMax-tMin))*plotW; const y=(plotCanvas.height-20)-((d[p]-vMin)/(vMax-vMin))*plotH; if(i===0) plotCtx.moveTo(x,y); else plotCtx.lineTo(x,y); } plotCtx.stroke(); } }
+
+    /**********************
+     * MINIMAP            *
+     **********************/
+    const minimapCanvas=document.getElementById('minimapCanvas'); const minimapCtx=minimapCanvas.getContext('2d');
+    function drawMinimap(){ const sx=minimapCanvas.width/world.width, sy=minimapCanvas.height/world.height; minimapCtx.clearRect(0,0,minimapCanvas.width,minimapCanvas.height); for(let r=0;r<world.terrain.length;r++){ for(let c=0;c<world.terrain[0].length;c++){ const cell=world.terrain[r][c]; minimapCtx.fillStyle=cell.color; minimapCtx.fillRect(c*TERRAIN_CELL_SIZE*sx, r*TERRAIN_CELL_SIZE*sy, TERRAIN_CELL_SIZE*sx, TERRAIN_CELL_SIZE*sy); } } minimapCtx.fillStyle='rgba(0,0,0,0.5)'; minimapCtx.fillRect(0,0,minimapCanvas.width,minimapCanvas.height); for(const b of world.bricks){ minimapCtx.fillStyle='#0af'; minimapCtx.fillRect(b.col*GRID_SIZE*sx, b.row*GRID_SIZE*sy, GRID_SIZE*sx, GRID_SIZE*sy); } for(const cr of world.creatures){ minimapCtx.beginPath(); minimapCtx.arc(cr.x*sx, cr.y*sy, 2, 0, Math.PI*2); minimapCtx.fillStyle = cr.genome.carnivorous>=0.5 ? '#f44' : '#0f0'; minimapCtx.fill(); } for(const f of world.food){ minimapCtx.beginPath(); minimapCtx.arc(f.x*sx, f.y*sy, 1.5, 0, Math.PI*2); minimapCtx.fillStyle='#ff0'; minimapCtx.fill(); } }
+
+    /**********************
+     * MAIN LOOP          *
+     **********************/
+    function loop(){ if(!simulationPaused) world.update(CONFIG.dt); world.draw(ctx); updateParticles(CONFIG.dt); drawParticles(ctx); updateSelectedUI(false); samplePlotData(); drawPlot(); drawMinimap(); requestAnimationFrame(loop); }
+    loop();
+  </script>
+</body>
+</html>
