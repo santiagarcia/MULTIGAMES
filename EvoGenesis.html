@@ -132,6 +132,15 @@
       baseFoodRegrowthRate: 0.02,
       reproductionCost: 10,
       reproductionCooldown: 5,
+  // New defensive projectile parameters for herbivores
+    herbivoreShootCooldown: 2.0,
+    herbivoreShootCost: 2.0,
+    herbivoreBulletSpeed: 200,
+    herbivoreBulletDamage: 5,
+    herbivoreThreatRangeFactor: 0.3,
+    herbivoreImmediateThreatFactor: 0.15,
+    herbivoreShootEnergyFrac: 0.5,
+    herbivoreApproachDotThreshold: 0.05,
       sizeRange: [2, 8],
       speedRange: [1, 100],
       metabolismRange: [0.1, 20],
@@ -236,7 +245,27 @@
     /**********************
      * PROJECTILES        *
      **********************/
-    class Projectile { constructor(x,y,vx,vy,damage){ this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.damage=damage; this.radius=3; this.lifetime=2; } update(dt,world){ this.x+=this.vx*dt; this.y+=this.vy*dt; this.lifetime-=dt; for(const cr of world.creatures){ if(!cr.alive) continue; if(cr.genome.carnivorous<0.5){ if(distance(this,cr)<this.radius+cr.genome.size/2){ cr.energy-=this.damage; this.lifetime=0; break; } } } } draw(ctx){ ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fillStyle='#f00'; ctx.fill(); } }
+    class Projectile {
+      constructor(x,y,vx,vy,damage,{targetCarnivores=false,color='#f00'}={}){
+        this.x=x; this.y=y; this.vx=vx; this.vy=vy; this.damage=damage; this.radius=3; this.lifetime=2; this.targetCarnivores=targetCarnivores; this.color=color;
+      }
+      update(dt,world){
+        this.x+=this.vx*dt; this.y+=this.vy*dt; this.lifetime-=dt;
+        for(const cr of world.creatures){
+          if(!cr.alive) continue;
+            // Decide which faction we damage
+            const isCarn = cr.genome.carnivorous>=0.5;
+            if(this.targetCarnivores ? isCarn : !isCarn){
+              if(distance(this,cr) < this.radius + cr.genome.size/2){
+                cr.energy -= this.damage;
+                this.lifetime = 0;
+                break;
+              }
+            }
+        }
+      }
+      draw(ctx){ ctx.beginPath(); ctx.arc(this.x,this.y,this.radius,0,Math.PI*2); ctx.fillStyle=this.color; ctx.fill(); }
+    }
 
     /**********************
      * CREATURE           *
@@ -250,6 +279,8 @@
         this.basePos = null;         // {col,row} origin for structure
         this.buildFrontier = [];     // queue of candidate {col,row}
         this.task = 'forage';        // 'forage' | 'gather' | 'build' | 'mate' | 'hunt'
+        // Shooting state
+        this.shootCooldown = 0;      // time until next defensive shot (herbivores)
       }
 
       // Decide if we feel like building: higher when energy is high or weather is bad
@@ -350,7 +381,7 @@
 
       update(dt, world){
         if (!this.alive) return;
-        this.age += dt; this.reproductionCooldown = Math.max(0, this.reproductionCooldown - dt);
+  this.age += dt; this.reproductionCooldown = Math.max(0, this.reproductionCooldown - dt); this.shootCooldown = Math.max(0, this.shootCooldown - dt);
         this.energy -= this.genome.metabolism * CONFIG.metabolismFactor * dt;
         if (this.energy <= 0 || this.age > this.genome.lifespan){ this.alive=false; spawnParticles(this.x,this.y,this.genome.size); const left=Math.max(0,this.energy)*CONFIG.corpseEnergyFraction; if (left>5) world.corpses.push(new Corpse(this.x,this.y,left,this.genome.carnivorous>=0.5)); return; }
 
@@ -367,12 +398,20 @@
         else this.task = 'forage';
 
         // Execute task
-        if (this.task === 'forage'){
+  if (this.task === 'forage'){
           // Herbivore: seek nearby food
           if (this.genome.carnivorous < 0.5){
             let target=null, best=Infinity; for(const f of world.food){ const d=distance(this,f); if (d<best && d < this.genome.vision){ best=d; target=f; } }
-            if (target){ this.seek(target.x, target.y, world, 1); if (distance(this,target) < this.genome.size + target.radius){ this.energy += target.energy; world.removeFood(target); } }
-            else { this.wander(world); }
+            if (target){
+              this.seek(target.x, target.y, world, 1);
+              if (distance(this,target) < this.genome.size + target.radius){ this.energy += target.energy; world.removeFood(target); }
+              // Only immediate threat while focused on food
+              this.tryDefensiveShot(world, true);
+            } else {
+              this.wander(world);
+              // Full threat evaluation when idle
+              this.tryDefensiveShot(world, false);
+            }
           } else { this.wander(world); }
         }
         else if (this.task === 'hunt'){
@@ -399,18 +438,46 @@
           const node = this.findNearestResource(world);
           if (node){ this.seek(node.x, node.y, world, 1); if (distance(this,node) < this.genome.size + node.radius + 2){ const stored = this.harvest(world,node,dt); if (node.amount<=0){ world.removeResource(node); spawnParticles(node.x,node.y,6); } if ((this.inventory.wood+this.inventory.stone) >= this.maxCarry) this.task='build'; } }
           else this.wander(world);
+          // Skip shooting while gathering to prioritize resources
         }
         else if (this.task === 'build'){
           if (!this.placeBrickIfPossible(world)){
             // If we couldn't place (far or no cell), keep moving toward cell or switch to gather if out of mats
             if ((this.inventory.wood+this.inventory.stone)===0) this.task='gather';
           }
+          // Only react to immediate threat while building
+          if (this.genome.carnivorous < 0.5) this.tryDefensiveShot(world, true);
         }
         else if (this.task === 'mate'){
           let mate=null, best=Infinity; for(const other of world.creatures){ if(other===this||!other.alive) continue; if (other.energy>other.genome.reproductionThreshold){ const d=distance(this,other); if (d<best && d<100){ best=d; mate=other; } } }
           if (mate){ this.seek(mate.x, mate.y, world, 1); if (distance(this,mate) < Math.max(10,this.genome.size)){ if (Math.random()<CONFIG.sexualReproChance){ const child = mutateGenome(crossoverGenome(this.genome, mate.genome)); world.addCreature(new Creature(child, this.x, this.y, Math.max(this.generation,mate.generation)+1)); this.energy-=CONFIG.reproductionCost; mate.energy-=CONFIG.reproductionCost; this.reproductionCooldown=CONFIG.reproductionCooldown; } } }
           else this.wander(world);
         }
+      }
+      // Herbivore defensive shooting method
+      tryDefensiveShot(world, onlyImmediate=false){
+        if (this.genome.carnivorous >= 0.5) return;
+        if (this.shootCooldown > 0) return;
+        if (this.energy < this.genome.reproductionThreshold * CONFIG.herbivoreShootEnergyFrac) return;
+        let predator=null, best=Infinity;
+        for(const other of world.creatures){
+          if(!other.alive || other===this) continue;
+          if(other.genome.carnivorous >= 0.5){
+            const d=distance(this,other);
+            if(d < best && d < this.genome.vision){ best=d; predator=other; }
+          }
+        }
+        if(!predator) return;
+        const vision=this.genome.vision;
+        const immediate=vision*CONFIG.herbivoreImmediateThreatFactor;
+        const threat=vision*CONFIG.herbivoreThreatRangeFactor;
+        if (onlyImmediate){ if (best>immediate) return; }
+        else { if (best>threat) return; }
+        const toHerbX=this.x - predator.x, toHerbY=this.y - predator.y; const dist=Math.max(1e-6, Math.hypot(toHerbX,toHerbY)); const nX=toHerbX/dist, nY=toHerbY/dist; const approach = predator.vx*nX + predator.vy*nY;
+        if (best>immediate && approach < predator.genome.speed*CONFIG.herbivoreApproachDotThreshold) return;
+        const ang=Math.atan2(predator.y - this.y, predator.x - this.x); const speed=CONFIG.herbivoreBulletSpeed; const vx=Math.cos(ang)*speed, vy=Math.sin(ang)*speed; const dmg=CONFIG.herbivoreBulletDamage + Math.max(0,(this.genome.size-2));
+        world.projectiles.push(new Projectile(this.x,this.y,vx,vy,dmg,{targetCarnivores:true,color:'#08f'}));
+        this.shootCooldown=CONFIG.herbivoreShootCooldown; this.energy -= CONFIG.herbivoreShootCost;
       }
 
       wander(world){
