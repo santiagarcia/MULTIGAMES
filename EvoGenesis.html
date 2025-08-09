@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- Mobile responsiveness on fleek -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EvoGenesis: Biome Overload Edition - iPhone-Friendly</title>
+    <style>
+      /* Base styles */
+      body {
+        margin: 0;
+        background: #000;
+        font-family: sans-serif;
+        color: #eee;
+      }
+      /* Canvas fills viewport but keeps an internal resolution for insane detail */
+      #canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      /* Main UI panel */
+      #ui {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 8px;
+        z-index: 10;
+        max-width: 300px;
+      }
+      #ui h2, #ui h3 {
+        margin-top: 0;
+      }
+      #ui button, #ui input[type="range"], #ui input[type="number"] {
+        margin-top: 10px;
+        padding: 5px 10px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      #selectedGenome {
+        white-space: pre-wrap;
+        font-size: 12px;
+        background: #333;
+        padding: 5px;
+        border-radius: 4px;
+        margin-top: 10px;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+      /* Plot window styles */
+      #plotWindow {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 10px;
+        border-radius: 8px;
+        z-index: 10;
+        width: 300px;
+        height: 280px;
+        box-sizing: border-box;
+      }
+      #plotCheckboxes {
+        display: flex;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+      #plotCheckboxes label {
+        width: 50%;
+        font-size: 14px;
+      }
+      #plotCanvas {
+        width: 100%;
+        height: 200px;
+        background: #222;
+        border: 1px solid #555;
+      }
+      /* Minimap window styles */
+      #minimapWindow {
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 10px;
+        border-radius: 8px;
+        z-index: 10;
+        width: 300px;
+        height: 220px;
+        box-sizing: border-box;
+      }
+      #minimapWindow h3 {
+        margin: 0;
+        font-size: 16px;
+        margin-bottom: 5px;
+      }
+      #minimapCanvas {
+        width: 100%;
+        height: 180px;
+        background: #111;
+        border: 1px solid #555;
+      }
+      /* Simulation parameters panel */
+      #paramPanel {
+        margin-top: 15px;
+        padding: 10px;
+        background: rgba(0,0,0,0.6);
+        border-radius: 8px;
+      }
+      #paramPanel label {
+        display: block;
+        margin-top: 5px;
+        font-size: 13px;
+      }
+      #paramPanel input {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Main canvas with a 3000x2000 internal resolution -->
+    <canvas id="canvas" width="3000" height="2000"></canvas>
+    
+    <!-- UI Panel -->
+    <div id="ui">
+      <h2>EvoGenesis</h2>
+      <div>Generation: <span id="generation">1</span></div>
+      <div>Population: <span id="population">0</span></div>
+      <div>Food Count: <span id="foodCount">0</span></div>
+      <div>Carnivores: <span id="carnivores">0</span></div>
+      <div>Herbivores: <span id="herbivores">0</span></div>
+      <div>Weather: <span id="weather">0.00</span></div>
+      <button id="addFoodBtn">Drop Food Here</button>
+      <h3>Selected Creature</h3>
+      <div id="selectedGenome">None</div>
+      <small>Click on a creature to inspect its genome.</small>
+      <!-- New simulation control buttons -->
+      <button id="pauseBtn">Pause</button>
+      <button id="resetBtn">Reset Game</button>
+      <div>
+        <label for="speedSlider">Sim Speed:</label>
+        <input type="range" id="speedSlider" min="0.05" max="0.5" step="0.05" value="0.1">
+      </div>
+      <!-- NEW: Simulation Parameters Panel -->
+      <div id="paramPanel">
+        <h3>Simulation Parameters</h3>
+        <label for="initPopInput">Initial Population:</label>
+        <input type="number" id="initPopInput" value="100" min="1">
+        <label for="initFoodInput">Initial Food:</label>
+        <input type="number" id="initFoodInput" value="10" min="1">
+        <label for="metabolismInput">Metabolism Factor:</label>
+        <input type="number" id="metabolismInput" value="0.01" step="0.001">
+        <label for="foodEnergyInput">Food Energy:</label>
+        <input type="number" id="foodEnergyInput" value="20" step="1">
+        <label for="foodRegrowthInput">Base Food Regrowth Rate:</label>
+        <input type="number" id="foodRegrowthInput" value="0.02" step="0.001">
+        <label for="reproCostInput">Reproduction Cost:</label>
+        <input type="number" id="reproCostInput" value="10" step="1">
+        <label for="reproCooldownInput">Reproduction Cooldown:</label>
+        <input type="number" id="reproCooldownInput" value="5" step="0.1">
+        <!-- NEW: Button to apply parameters and restart simulation -->
+        <button id="applyParamsBtn">Apply Parameters & Restart</button>
+      </div>
+    </div>
+    
+    <!-- Plot Window -->
+    <div id="plotWindow">
+      <div id="plotCheckboxes">
+        <label><input type="checkbox" value="population" checked />Pop</label>
+        <label><input type="checkbox" value="food" checked />Food</label>
+        <label><input type="checkbox" value="weather" checked />Weather</label>
+        <label><input type="checkbox" value="generation" />Gen</label>
+        <label><input type="checkbox" value="avgEnergy" />Avg E</label>
+        <label><input type="checkbox" value="preyCount" checked />Prey</label>
+        <label><input type="checkbox" value="carnivoreCount" checked />Carn</label>
+      </div>
+      <canvas id="plotCanvas" width="300" height="200"></canvas>
+    </div>
+    
+    <!-- Minimap Window -->
+    <div id="minimapWindow">
+      <h3>Minimap</h3>
+      <canvas id="minimapCanvas" width="300" height="180"></canvas>
+    </div>
+    
+    <script>
+      /***************************
+       * CONFIGURATION CONSTANTS *
+       ***************************/
+      const CONFIG = {
+        worldWidth: 3000,
+        worldHeight: 2000,
+        initialPopulation: 100,
+        initialFood: 10,
+        metabolismFactor: 0.01,
+        foodEnergy: 20,
+        baseFoodRegrowthRate: 0.02,
+        reproductionCost: 10,
+        reproductionCooldown: 5,
+        sizeRange: [2, 8],
+        speedRange: [1, 100],
+        metabolismRange: [0.1, 20],
+        aggressionRange: [0, 1],
+        reproThresholdRange: [100, 200],
+        lifespanRange: [100, 300],
+        carnivorousRange: [0, 1],
+        visionRange: [50, 150],
+        legsRange: [0, 10],
+        bodySegmentsRange: [1, 8],
+        shellRange: [0, 5],
+        sexualReproChance: 0.5,
+        cannibalismBonus: 0.5,
+        dt: 0.1, // Adjustable simulation speed
+        weatherPeriod: 30,
+        corpseEnergyFraction: 0.5,
+        ALLOW_ASEXUAL: 0
+      };
+
+      const TERRAIN_CELL_SIZE = 50;
+      const TERRAIN_TYPES = [
+        { type: "plains", color: "#555", speed: 1.0, food: 1.0 },
+        { type: "forest", color: "#3a5", speed: 0.8, food: 1.2 },
+        { type: "swamp", color: "#336", speed: 0.6, food: 0.8 },
+        { type: "mountain", color: "#777", speed: 0.7, food: 0.5 }
+      ];
+      
+      // Global particles array for epic explosion effects
+      let particles = [];
+
+      /**********************
+       * UTILITY FUNCTIONS  *
+       **********************/
+      function randomInRange(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+      function randomIntInRange(min, max) {
+        return Math.floor(randomInRange(min, max + 1));
+      }
+      function distance(a, b) {
+        const dx = a.x - b.x, dy = a.y - b.y;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+      function clamp(val, min, max) {
+        return Math.max(min, Math.min(max, val));
+      }
+      function areGenomesSimilar(g1, g2) {
+        let totalDiff =
+          Math.abs(g1.size - g2.size) +
+          Math.abs(g1.speed - g2.speed) +
+          Math.abs(g1.aggression - g2.aggression) +
+          Math.abs(g1.reproductionThreshold - g2.reproductionThreshold) +
+          Math.abs(g1.lifespan - g2.lifespan) +
+          Math.abs(g1.vision - g2.vision) +
+          Math.abs(g1.legs - g2.legs) +
+          Math.abs(g1.bodySegments - g2.bodySegments) +
+          Math.abs(g1.shell - g2.shell);
+        return totalDiff / 9 < 1.0;
+      }
+      // NEW: Convert client coordinates to canvas coordinates
+      function getCanvasCoordinates(event, canvasElement) {
+        const rect = canvasElement.getBoundingClientRect();
+        const scaleX = canvasElement.width / rect.width;
+        const scaleY = canvasElement.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+        return { x, y };
+      }
+
+      /*************************
+       * CLASS: PARTICLE       *
+       *************************/
+      class Particle {
+        constructor(x, y, vx, vy, life, radius, color) {
+          this.x = x;
+          this.y = y;
+          this.vx = vx;
+          this.vy = vy;
+          this.life = life;
+          this.radius = radius;
+          this.color = color;
+        }
+        update(dt) {
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+          this.life -= dt;
+        }
+        draw(ctx) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.fill();
+        }
+      }
+      function spawnParticles(x, y, baseSize) {
+        const numParticles = Math.floor(Math.random() * 5) + 5;
+        for (let i = 0; i < numParticles; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 50 + 20;
+          const vx = Math.cos(angle) * speed;
+          const vy = Math.sin(angle) * speed;
+          const life = Math.random() * 0.5 + 0.5;
+          const radius = Math.random() * (baseSize / 10) + 1;
+          const red = Math.floor(200 + Math.random() * 55);
+          const green = Math.floor(Math.random() * 100);
+          const blue = 0;
+          const color = `rgb(${red}, ${green}, ${blue})`;
+          particles.push(new Particle(x, y, vx, vy, life, radius, color));
+        }
+      }
+      function updateParticles(dt) {
+        particles.forEach(p => p.update(dt));
+        particles = particles.filter(p => p.life > 0);
+      }
+      function drawParticles(ctx) {
+        particles.forEach(p => p.draw(ctx));
+      }
+
+      /***********************
+       * GENOME & TERRAIN    *
+       ***********************/
+      function randomGenome() {
+        let carnivorous = Math.random() < 0.5 ? 0 : 1;
+        let baseSpeed = randomInRange(...CONFIG.speedRange);
+        if (carnivorous >= 1) baseSpeed *= 1.2;
+        return {
+          size: randomInRange(...CONFIG.sizeRange),
+          speed: baseSpeed,
+          metabolism: randomInRange(...CONFIG.metabolismRange),
+          aggression: randomInRange(...CONFIG.aggressionRange),
+          reproductionThreshold: randomInRange(...CONFIG.reproThresholdRange),
+          lifespan: randomInRange(...CONFIG.lifespanRange),
+          carnivorous: carnivorous,
+          vision: randomInRange(...CONFIG.visionRange),
+          legs: randomIntInRange(CONFIG.legsRange[0], CONFIG.legsRange[1]),
+          bodySegments: randomIntInRange(CONFIG.bodySegmentsRange[0], CONFIG.bodySegmentsRange[1]),
+          shell: Math.random() * (CONFIG.shellRange[1] - CONFIG.shellRange[0]) + CONFIG.shellRange[0]
+        };
+      }
+      function crossoverGenome(g1, g2) {
+        return {
+          size: (g1.size + g2.size) / 2,
+          speed: (g1.speed + g2.speed) / 2,
+          metabolism: (g1.metabolism + g2.metabolism) / 2,
+          aggression: (g1.aggression + g2.aggression) / 2,
+          reproductionThreshold: (g1.reproductionThreshold + g2.reproductionThreshold) / 2,
+          lifespan: (g1.lifespan + g2.lifespan) / 2,
+          carnivorous: Math.random() < 0.5 ? g1.carnivorous : g2.carnivorous,
+          vision: (g1.vision + g2.vision) / 2,
+          legs: Math.floor((g1.legs + g2.legs) / 2),
+          bodySegments: Math.floor((g1.bodySegments + g2.bodySegments) / 2),
+          shell: (g1.shell + g2.shell) / 2
+        };
+      }
+      function mutateGenome(genome) {
+        const mutateParam = (val, range, mutationRate = 0.1, integer = false) => {
+          if (Math.random() < 0.2) {
+            let delta = (Math.random() - 0.5) * mutationRate * (range[1] - range[0]);
+            let newVal = val + delta;
+            if (integer) newVal = Math.round(newVal);
+            return clamp(newVal, range[0], range[1]);
+          }
+          return val;
+        };
+        return {
+          size: mutateGenomeParameter(genome.size, CONFIG.sizeRange),
+          speed: mutateGenomeParameter(genome.speed, CONFIG.speedRange),
+          metabolism: mutateGenomeParameter(genome.metabolism, CONFIG.metabolismRange),
+          aggression: mutateGenomeParameter(genome.aggression, CONFIG.aggressionRange),
+          reproductionThreshold: mutateGenomeParameter(genome.reproductionThreshold, CONFIG.reproThresholdRange),
+          lifespan: mutateGenomeParameter(genome.lifespan, CONFIG.lifespanRange),
+          carnivorous: genome.carnivorous,
+          vision: genome.vision,
+          legs: mutateParam(genome.legs, CONFIG.legsRange, 0.1, true),
+          bodySegments: mutateParam(genome.bodySegments, CONFIG.bodySegmentsRange, 0.1, true),
+          shell: mutateParam(genome.shell, CONFIG.shellRange)
+        };
+      }
+      function mutateGenomeParameter(val, range) {
+        const mutationRate = 0.1;
+        if (Math.random() < 0.2) {
+          let delta = (Math.random() - 0.5) * mutationRate * (range[1] - range[0]);
+          let newVal = val + delta;
+          return clamp(newVal, range[0], range[1]);
+        }
+        return val;
+      }
+      function generateTerrain(worldWidth, worldHeight, cellSize) {
+        const totalCols = Math.ceil(worldWidth / cellSize);
+        const totalRows = Math.ceil(worldHeight / cellSize);
+        const biomeScale = 5;
+        const biomeCols = Math.ceil(totalCols / biomeScale);
+        const biomeRows = Math.ceil(totalRows / biomeScale);
+        let biomeGrid = [];
+        for (let i = 0; i < biomeRows; i++) {
+          let biomeRow = [];
+          for (let j = 0; j < biomeCols; j++) {
+            let typeObj = TERRAIN_TYPES[randomIntInRange(0, TERRAIN_TYPES.length - 1)];
+            biomeRow.push(typeObj);
+          }
+          biomeGrid.push(biomeRow);
+        }
+        let terrain = [];
+        for (let rowIdx = 0; rowIdx < totalRows; rowIdx++) {
+          let terrainRow = [];
+          let biomeRowIdx = Math.floor(rowIdx / biomeScale);
+          for (let colIdx = 0; colIdx < totalCols; colIdx++) {
+            let biomeColIdx = Math.floor(colIdx / biomeScale);
+            let biomeType = biomeGrid[biomeRowIdx][biomeColIdx];
+            terrainRow.push({
+              type: biomeType.type,
+              color: biomeType.color,
+              speed: biomeType.speed,
+              food: biomeType.food
+            });
+          }
+          terrain.push(terrainRow);
+        }
+        return terrain;
+      }
+      
+      /**********************
+       * CLASS: FOOD        *
+       **********************/
+      class Food {
+        constructor(x, y, energy = CONFIG.foodEnergy) {
+          this.x = x;
+          this.y = y;
+          this.energy = energy;
+          this.radius = 4;
+        }
+        draw(ctx) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = "#0a0";
+          ctx.fill();
+        }
+      }
+      
+      /**********************
+       * CLASS: CORPSE      *
+       **********************/
+      class Corpse {
+        constructor(x, y, energy, isPredator = false) {
+          this.x = x;
+          this.y = y;
+          this.energy = energy;
+          this.radius = 6;
+          this.isPredator = isPredator;
+          this.age = 0;
+          this.maxAge = 5;
+        }
+        update(dt) {
+          this.age += dt;
+        }
+        draw(ctx) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = "#a33";
+          ctx.fill();
+        }
+      }
+      
+      /**********************
+       * CLASS: PROJECTILE  *
+       **********************/
+      class Projectile {
+        constructor(x, y, vx, vy, damage) {
+          this.x = x;
+          this.y = y;
+          this.vx = vx;
+          this.vy = vy;
+          this.damage = damage;
+          this.radius = 3;
+          this.lifetime = 2;
+        }
+        update(dt, world) {
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+          this.lifetime -= dt;
+          for (let creature of world.creatures) {
+            if (!creature.alive) continue;
+            if (creature.genome.carnivorous < 0.5) {
+              if (distance(this, creature) < this.radius + creature.genome.size / 2) {
+                creature.energy -= this.damage;
+                this.lifetime = 0;
+              }
+            }
+          }
+        }
+        draw(ctx) {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fillStyle = "#f00";
+          ctx.fill();
+        }
+      }
+      
+      /**********************
+       * CLASS: CREATURE    *
+       **********************/
+      class Creature {
+        constructor(genome, x, y, generation = 1) {
+          this.genome = genome;
+          this.x = x;
+          this.y = y;
+          this.vx = 0;
+          this.vy = 0;
+          this.energy = genome.reproductionThreshold / 2;
+          this.age = 0;
+          this.alive = true;
+          this.generation = generation;
+          this.reproductionCooldown = 0;
+          this.wanderAngle = Math.random() * Math.PI * 2;
+        }
+        update(dt, world) {
+          if (!this.alive) return;
+          this.age += dt;
+          this.reproductionCooldown = Math.max(0, this.reproductionCooldown - dt);
+          this.energy -= this.genome.metabolism * CONFIG.metabolismFactor * dt;
+          if (this.energy <= 0 || this.age > this.genome.lifespan) {
+            this.alive = false;
+            spawnParticles(this.x, this.y, this.genome.size);
+            let leftoverEnergy = this.energy * CONFIG.corpseEnergyFraction;
+            if (leftoverEnergy > 5) {
+              world.corpses.push(new Corpse(this.x, this.y, leftoverEnergy, this.genome.carnivorous >= 0.5));
+            }
+            return;
+          }
+      
+          let cellCol = Math.floor(this.x / TERRAIN_CELL_SIZE);
+          let cellRow = Math.floor(this.y / TERRAIN_CELL_SIZE);
+          let terrainCell = world.terrain[cellRow][cellCol];
+          let speedMultiplier = terrainCell.speed;
+      
+          // Carnivores get a wider view range.
+          let effectiveVision = this.genome.vision;
+          if (this.genome.carnivorous >= 0.5) {
+            effectiveVision *= 1.5;
+          }
+      
+          let hunger = clamp(1 - this.energy / this.genome.reproductionThreshold, 0, 1);
+          let desireToMate = clamp((this.energy - this.genome.reproductionThreshold) / this.genome.reproductionThreshold, 0, 1);
+          let target = null, targetType = null, bestDist = Infinity;
+      
+          if (this.genome.carnivorous < 0.5) {
+            for (let food of world.food) {
+              let d = distance(this, food);
+              if (d < effectiveVision && d < bestDist) {
+                bestDist = d;
+                target = food;
+                targetType = "food";
+              }
+            }
+          } else {
+            if (this.energy < this.genome.reproductionThreshold) {
+              for (let corpse of world.corpses) {
+                let d = distance(this, corpse);
+                if (d < effectiveVision && d < bestDist) {
+                  bestDist = d;
+                  target = corpse;
+                  targetType = "corpse";
+                }
+              }
+              for (let other of world.creatures) {
+                if (other === this || !other.alive) continue;
+                if (other.genome.size <= this.genome.size) {
+                  let d = distance(this, other);
+                  if (d < effectiveVision && d < bestDist) {
+                    bestDist = d;
+                    target = other;
+                    targetType = "prey";
+                  }
+                }
+              }
+            } else if (desireToMate > hunger) {
+              for (let other of world.creatures) {
+                if (other === this || !other.alive) continue;
+                if (other.energy > other.genome.reproductionThreshold && distance(this, other) < 100) {
+                  let d = distance(this, other);
+                  if (d < bestDist) {
+                    bestDist = d;
+                    target = other;
+                    targetType = "mate";
+                  }
+                }
+              }
+            }
+          }
+      
+          let extraSpeed = 1;
+          if (this.genome.carnivorous >= 0.5 && targetType === "prey") {
+            extraSpeed = 1.5;
+            if (bestDist > this.genome.size * 3 && Math.random() < 0.05) {
+              let angle = Math.atan2(target.y - this.y, target.x - this.x);
+              let projSpeed = this.genome.speed * 1.5;
+              let vx = Math.cos(angle) * projSpeed;
+              let vy = Math.sin(angle) * projSpeed;
+              let damage = this.genome.aggression * 10;
+              world.projectiles.push(new Projectile(this.x, this.y, vx, vy, damage));
+            }
+          }
+      
+          let desiredVx = 0, desiredVy = 0;
+          if (target) {
+            let angle = Math.atan2(target.y - this.y, target.x - this.x);
+            desiredVx = Math.cos(angle) * this.genome.speed * extraSpeed;
+            desiredVy = Math.sin(angle) * this.genome.speed * extraSpeed;
+          } else {
+            if (hunger > 0.5) {
+              this.wanderAngle += (Math.random() - 0.5) * 0.1;
+              desiredVx = Math.cos(this.wanderAngle) * this.genome.speed;
+              desiredVy = Math.sin(this.wanderAngle) * this.genome.speed;
+            } else {
+              desiredVx = (Math.random() - 0.5) * this.genome.speed;
+              desiredVy = (Math.random() - 0.5) * this.genome.speed;
+            }
+          }
+      
+          const steering = 0.05;
+          desiredVx *= speedMultiplier;
+          desiredVy *= speedMultiplier;
+          this.vx = (1 - steering) * this.vx + steering * desiredVx;
+          this.vy = (1 - steering) * this.vy + steering * desiredVy;
+          this.x += this.vx * CONFIG.dt;
+          this.y += this.vy * CONFIG.dt;
+          this.x = clamp(this.x, 20, world.width - 20);
+          this.y = clamp(this.y, 20, world.height - 20);
+      
+          if (target) {
+            let d = distance(this, target);
+            if (targetType === "food" && d < this.genome.size + target.radius) {
+              this.energy += target.energy;
+              world.removeFood(target);
+            }
+            if (targetType === "corpse" && d < this.genome.size + target.radius && this.genome.carnivorous >= 0.5) {
+              if (!target.isPredator) {
+                this.energy += target.energy;
+                world.removeCorpse(target);
+              }
+            }
+            if (targetType === "prey" && d < this.genome.size + target.genome.size) {
+              if (target.genome.size <= this.genome.size) {
+                if (target.genome.carnivorous >= 0.5 && areGenomesSimilar(this.genome, target.genome)) {
+                  // Avoid cannibalism among similar predators
+                } else {
+                  let sizeDiff = this.genome.size - target.genome.size;
+                  let fightChance = this.genome.aggression * (0.5 + 0.5 * (sizeDiff / this.genome.size));
+                  fightChance *= 1.5;
+                  if (target.genome.carnivorous < 0.5) fightChance *= 1.2;
+                  if (Math.random() < fightChance) {
+                    this.energy += target.energy * CONFIG.cannibalismBonus;
+                    target.alive = false;
+                    spawnParticles(target.x, target.y, target.genome.size);
+                    let leftover = target.energy * CONFIG.corpseEnergyFraction;
+                    if (leftover > 5) {
+                      world.corpses.push(new Corpse(target.x, target.y, leftover, target.genome.carnivorous >= 0.5));
+                    }
+                  } else {
+                    if (target.genome.carnivorous < 0.5) this.energy -= 5;
+                  }
+                }
+              }
+            }
+          }
+      
+          // Reproduction logic
+          if (this.energy > this.genome.reproductionThreshold && this.reproductionCooldown <= 0) {
+            let mate = null;
+            for (let other of world.creatures) {
+              if (other === this || !other.alive) continue;
+              if (other.energy > other.genome.reproductionThreshold && distance(this, other) < 30) {
+                mate = other;
+                break;
+              }
+            }
+            if (mate && Math.random() < CONFIG.sexualReproChance) {
+              let childGenome = crossoverGenome(this.genome, mate.genome);
+              childGenome = mutateGenome(childGenome);
+              let childGen = Math.max(this.generation, mate.generation) + 1;
+              world.addCreature(new Creature(childGenome, this.x, this.y, childGen));
+              this.energy -= CONFIG.reproductionCost;
+              mate.energy -= CONFIG.reproductionCost;
+              this.reproductionCooldown = CONFIG.reproductionCooldown;
+            }
+          }
+        }
+        draw(ctx) {
+          if (!this.alive) return;
+          let headRadius = this.genome.size / 2;
+          let bodyLength = this.genome.size;
+          let totalBodyLength = this.genome.bodySegments * bodyLength;
+          let energyRatio = clamp(this.energy / this.genome.reproductionThreshold, 0, 1);
+          let r = Math.floor(255 * (1 - energyRatio));
+          let g = Math.floor(255 * energyRatio);
+          let color = `rgb(${r},${g},${Math.min(255, this.generation * 20)})`;
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          if (this.genome.shell > 0.5) {
+            ctx.beginPath();
+            ctx.arc(0, -totalBodyLength, headRadius * 2, 0, Math.PI * 2);
+            ctx.strokeStyle = "#bbb";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+          ctx.beginPath();
+          ctx.arc(0, -totalBodyLength, headRadius, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(0, -totalBodyLength + headRadius);
+          ctx.lineTo(0, 0);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, -totalBodyLength + headRadius * 1.5);
+          ctx.lineTo(-headRadius, -totalBodyLength + headRadius * 1.5 + headRadius);
+          ctx.moveTo(0, -totalBodyLength + headRadius * 1.5);
+          ctx.lineTo(headRadius, -totalBodyLength + headRadius * 1.5 + headRadius);
+          ctx.stroke();
+          let legCount = this.genome.legs;
+          for (let i = 0; i < legCount; i++) {
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            let angle = -Math.PI / 4 + (legCount > 1 ? (i / (legCount - 1)) * (Math.PI / 2) : 0);
+            let legLen = bodyLength;
+            let lx = Math.cos(angle) * legLen;
+            let ly = Math.sin(angle) * legLen;
+            ctx.lineTo(lx, ly);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+      
+      /**********************
+       * CLASS: WORLD       *
+       **********************/
+      class World {
+        constructor(width, height) {
+          this.width = width;
+          this.height = height;
+          this.creatures = [];
+          this.food = [];
+          this.corpses = [];
+          this.projectiles = [];
+          this.terrain = generateTerrain(width, height, TERRAIN_CELL_SIZE);
+          this.generation = 1;
+          this.time = 0;
+          this.foodSpawnTimer = 0;
+        }
+        initialize() {
+          this.creatures = [];
+          this.food = [];
+          this.corpses = [];
+          this.projectiles = [];
+          this.terrain = generateTerrain(this.width, this.height, TERRAIN_CELL_SIZE);
+          for (let i = 0; i < CONFIG.initialPopulation; i++) {
+            let genome = randomGenome();
+            let x = randomInRange(50, this.width - 50);
+            let y = randomInRange(50, this.height - 50);
+            this.creatures.push(new Creature(genome, x, y, 1));
+          }
+          for (let i = 0; i < CONFIG.initialFood; i++) {
+            let x = randomInRange(20, this.width - 20);
+            let y = randomInRange(20, this.height - 20);
+            this.food.push(new Food(x, y));
+          }
+          this.foodSpawnTimer = 0;
+          document.getElementById("generation").innerText = this.generation;
+        }
+        addCreature(creature) {
+          this.creatures.push(creature);
+        }
+        removeFood(foodItem) {
+          this.food = this.food.filter(f => f !== foodItem);
+        }
+        removeCorpse(corpseItem) {
+          this.corpses = this.corpses.filter(c => c !== corpseItem);
+        }
+        update(dt) {
+          this.time += dt;
+          let weather = (Math.sin((2 * Math.PI * this.time) / CONFIG.weatherPeriod) + 1) / 2;
+          document.getElementById("weather").innerText = weather.toFixed(2);
+          for (let creature of this.creatures) {
+            creature.update(dt, this);
+          }
+          for (let corpse of this.corpses) {
+            corpse.update(dt);
+          }
+          this.corpses = this.corpses.filter(c => c.age <= c.maxAge);
+          for (let projectile of this.projectiles) {
+            projectile.update(dt, this);
+          }
+          this.projectiles = this.projectiles.filter(p => p.lifetime > 0);
+          this.foodSpawnTimer += dt;
+          if (this.foodSpawnTimer >= 3) {
+            for (let row = 0; row < this.terrain.length; row++) {
+              for (let col = 0; col < this.terrain[0].length; col++) {
+                let cell = this.terrain[row][col];
+                if (Math.random() < CONFIG.baseFoodRegrowthRate * cell.food * weather) {
+                  let cellX = col * TERRAIN_CELL_SIZE;
+                  let cellY = row * TERRAIN_CELL_SIZE;
+                  let x = randomInRange(cellX, cellX + TERRAIN_CELL_SIZE);
+                  let y = randomInRange(cellY, cellY + TERRAIN_CELL_SIZE);
+                  this.food.push(new Food(x, y));
+                }
+              }
+            }
+            this.foodSpawnTimer = 0;
+          }
+          this.creatures = this.creatures.filter(creature => creature.alive);
+          if (this.creatures.length > 0) {
+            let minGen = Math.min(...this.creatures.map(c => c.generation));
+            if (minGen > this.generation) {
+              this.generation = minGen;
+              document.getElementById("generation").innerText = this.generation;
+            }
+          } else {
+            this.generation = 1;
+            document.getElementById("generation").innerText = this.generation;
+            this.initialize();
+          }
+          document.getElementById("population").innerText = this.creatures.length;
+          document.getElementById("foodCount").innerText = this.food.length;
+        }
+        draw(ctx) {
+          for (let row = 0; row < this.terrain.length; row++) {
+            for (let col = 0; col < this.terrain[0].length; col++) {
+              let cell = this.terrain[row][col];
+              ctx.fillStyle = cell.color;
+              ctx.fillRect(col * TERRAIN_CELL_SIZE, row * TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE);
+            }
+          }
+          ctx.fillStyle = "rgba(34,34,34,0.8)";
+          ctx.fillRect(0, 0, this.width, this.height);
+          for (let f of this.food) { f.draw(ctx); }
+          for (let c of this.corpses) { c.draw(ctx); }
+          for (let projectile of this.projectiles) { projectile.draw(ctx); }
+          for (let creature of this.creatures) { creature.draw(ctx); }
+        }
+      }
+      
+      /************************************
+       * RESPONSIVE & TOUCH SUPPORT FUN   *
+       ************************************/
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      
+      // Global mouse object in canvas coordinates
+      let mouse = { x: 0, y: 0 };
+      
+      // Resize the canvas display to fill viewport
+      function resizeCanvas() {
+        canvas.style.width = window.innerWidth + "px";
+        canvas.style.height = window.innerHeight + "px";
+      }
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+      
+      // Touch events with proper coordinate scaling
+      canvas.addEventListener("touchstart", function(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const { x: mouseX, y: mouseY } = getCanvasCoordinates(touch, canvas);
+        selectedCreature = null;
+        for (let creature of world.creatures) {
+          if (distance({ x: mouseX, y: mouseY }, creature) < creature.genome.size + 5) {
+            selectedCreature = creature;
+            break;
+          }
+        }
+        if (!selectedCreature) {
+          world.food.push(new Food(mouseX, mouseY));
+        }
+        updateSelectedUI();
+      });
+      canvas.addEventListener("touchmove", function(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        mouse = getCanvasCoordinates(touch, canvas);
+      });
+      
+      // Mouse events with coordinate conversion
+      canvas.addEventListener("click", (e) => {
+        const { x: mouseX, y: mouseY } = getCanvasCoordinates(e, canvas);
+        selectedCreature = null;
+        for (let creature of world.creatures) {
+          if (distance({ x: mouseX, y: mouseY }, creature) < creature.genome.size + 5) {
+            selectedCreature = creature;
+            break;
+          }
+        }
+        if (!selectedCreature) {
+          world.food.push(new Food(mouseX, mouseY));
+        }
+        updateSelectedUI();
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        mouse = getCanvasCoordinates(e, canvas);
+      });
+      
+      /***********************
+       * SIMULATION SETUP    *
+       ***********************/
+      let simulationPaused = false;
+      const world = new World(CONFIG.worldWidth, CONFIG.worldHeight);
+      world.initialize();
+      let selectedCreature = null;
+      
+      document.getElementById("addFoodBtn").addEventListener("click", () => {
+        world.food.push(new Food(mouse.x, mouse.y));
+      });
+      
+      document.getElementById("pauseBtn").addEventListener("click", () => {
+        simulationPaused = !simulationPaused;
+        document.getElementById("pauseBtn").innerText = simulationPaused ? "Resume" : "Pause";
+      });
+      document.getElementById("resetBtn").addEventListener("click", () => {
+        world.initialize();
+        plotHistory = [];
+      });
+      document.getElementById("speedSlider").addEventListener("input", (e) => {
+        CONFIG.dt = parseFloat(e.target.value);
+      });
+      
+      // NEW: Apply parameters from UI inputs and restart simulation (user settings persist)
+      document.getElementById("applyParamsBtn").addEventListener("click", () => {
+        CONFIG.initialPopulation = parseInt(document.getElementById("initPopInput").value);
+        CONFIG.initialFood = parseInt(document.getElementById("initFoodInput").value);
+        CONFIG.metabolismFactor = parseFloat(document.getElementById("metabolismInput").value);
+        CONFIG.foodEnergy = parseFloat(document.getElementById("foodEnergyInput").value);
+        CONFIG.baseFoodRegrowthRate = parseFloat(document.getElementById("foodRegrowthInput").value);
+        CONFIG.reproductionCost = parseFloat(document.getElementById("reproCostInput").value);
+        CONFIG.reproductionCooldown = parseFloat(document.getElementById("reproCooldownInput").value);
+        // Restart simulation with new parameters
+        world.initialize();
+        plotHistory = [];
+      });
+      
+      function updateSelectedUI() {
+        const selectedDiv = document.getElementById("selectedGenome");
+        if (selectedCreature) {
+          selectedDiv.innerText = JSON.stringify(selectedCreature.genome, null, 2);
+        } else {
+          selectedDiv.innerText = "None";
+        }
+        updateLeftPanelStats();
+      }
+      function updateLeftPanelStats() {
+        let preyCount = 0;
+        let carnCount = 0;
+        for (let c of world.creatures) {
+          if (c.genome.carnivorous >= 0.5) carnCount++;
+          else preyCount++;
+        }
+        document.getElementById("carnivores").innerText = carnCount;
+        document.getElementById("herbivores").innerText = preyCount;
+      }
+      
+      /**********************
+       * PLOTTING FUNCTIONS *
+       **********************/
+      const plotCanvas = document.getElementById("plotCanvas");
+      const plotCtx = plotCanvas.getContext("2d");
+      const checkboxContainer = document.getElementById("plotCheckboxes");
+      let plotHistory = [];
+      let lastPlotTime = 0;
+      const checkboxes = checkboxContainer.querySelectorAll("input[type='checkbox']");
+      const parameterColors = {
+        population: "#0f0",
+        food: "#ff0",
+        weather: "#0ff",
+        generation: "#f0f",
+        avgEnergy: "#fa0",
+        preyCount: "#88f",
+        carnivoreCount: "#f44"
+      };
+      function countPreyAndCarnivores() {
+        let preyCount = 0;
+        let carnCount = 0;
+        for (let c of world.creatures) {
+          if (c.genome.carnivorous >= 0.5) carnCount++;
+          else preyCount++;
+        }
+        return { preyCount, carnivoreCount: carnCount };
+      }
+      function samplePlotData() {
+        if (world.time - lastPlotTime < 0.5) return;
+        lastPlotTime = world.time;
+        const { preyCount, carnivoreCount } = countPreyAndCarnivores();
+        let totalEnergy = 0;
+        for (let c of world.creatures) {
+          totalEnergy += c.energy;
+        }
+        let avgEnergy = world.creatures.length ? totalEnergy / world.creatures.length : 0;
+        let dataPoint = {
+          time: world.time,
+          population: world.creatures.length,
+          food: world.food.length,
+          weather: parseFloat(document.getElementById("weather").innerText),
+          generation: world.generation,
+          avgEnergy: avgEnergy,
+          preyCount: preyCount,
+          carnivoreCount: carnivoreCount
+        };
+        plotHistory.push(dataPoint);
+        if (plotHistory.length > 500) {
+          plotHistory.shift();
+        }
+      }
+      function drawPlot() {
+        plotCtx.clearRect(0, 0, plotCanvas.width, plotCanvas.height);
+        plotCtx.strokeStyle = "#777";
+        plotCtx.lineWidth = 1;
+        plotCtx.beginPath();
+        plotCtx.moveTo(0, plotCanvas.height - 20);
+        plotCtx.lineTo(plotCanvas.width, plotCanvas.height - 20);
+        plotCtx.moveTo(30, 0);
+        plotCtx.lineTo(30, plotCanvas.height);
+        plotCtx.stroke();
+        if (plotHistory.length < 2) return;
+        let tMin = plotHistory[0].time;
+        let tMax = plotHistory[plotHistory.length - 1].time;
+        let selectedParams = [];
+        checkboxes.forEach((cb) => {
+          if (cb.checked) selectedParams.push(cb.value);
+        });
+        if (selectedParams.length === 0) return;
+        let vMin = Infinity;
+        let vMax = -Infinity;
+        for (let p of selectedParams) {
+          for (let d of plotHistory) {
+            let val = d[p];
+            if (val < vMin) vMin = val;
+            if (val > vMax) vMax = val;
+          }
+        }
+        let vPadding = (vMax - vMin) * 0.1;
+        vMin -= vPadding;
+        vMax += vPadding;
+        if (vMax === vMin) { vMax += 1; vMin -= 1; }
+        let plotWidth = plotCanvas.width - 40;
+        let plotHeight = plotCanvas.height - 40;
+        for (let param of selectedParams) {
+          plotCtx.strokeStyle = parameterColors[param] || "#fff";
+          plotCtx.lineWidth = 2;
+          plotCtx.beginPath();
+          for (let i = 0; i < plotHistory.length; i++) {
+            let d = plotHistory[i];
+            let x = 30 + ((d.time - tMin) / (tMax - tMin)) * plotWidth;
+            let y = (plotCanvas.height - 20) - ((d[param] - vMin) / (vMax - vMin)) * plotHeight;
+            if (i === 0) {
+              plotCtx.moveTo(x, y);
+            } else {
+              plotCtx.lineTo(x, y);
+            }
+          }
+          plotCtx.stroke();
+        }
+      }
+      
+      /**********************
+       * MINIMAP FUNCTIONS  *
+       **********************/
+      const minimapCanvas = document.getElementById("minimapCanvas");
+      const minimapCtx = minimapCanvas.getContext("2d");
+      function drawMinimap() {
+        let scaleX = minimapCanvas.width / world.width;
+        let scaleY = minimapCanvas.height / world.height;
+        minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+        for (let row = 0; row < world.terrain.length; row++) {
+          for (let col = 0; col < world.terrain[0].length; col++) {
+            let cell = world.terrain[row][col];
+            minimapCtx.fillStyle = cell.color;
+            minimapCtx.fillRect(col * TERRAIN_CELL_SIZE * scaleX, row * TERRAIN_CELL_SIZE * scaleY, TERRAIN_CELL_SIZE * scaleX, TERRAIN_CELL_SIZE * scaleY);
+          }
+        }
+        minimapCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+        for (let creature of world.creatures) {
+          minimapCtx.beginPath();
+          minimapCtx.arc(creature.x * scaleX, creature.y * scaleY, 2, 0, Math.PI * 2);
+          minimapCtx.fillStyle = creature.genome.carnivorous >= 0.5 ? "#f44" : "#0f0";
+          minimapCtx.fill();
+        }
+        for (let foodItem of world.food) {
+          minimapCtx.beginPath();
+          minimapCtx.arc(foodItem.x * scaleX, foodItem.y * scaleY, 1.5, 0, Math.PI * 2);
+          minimapCtx.fillStyle = "#ff0";
+          minimapCtx.fill();
+        }
+      }
+      
+      /**********************
+       * MAIN LOOP          *
+       **********************/
+      function loop() {
+        if (!simulationPaused) {
+          world.update(CONFIG.dt);
+        }
+        world.draw(ctx);
+        updateParticles(CONFIG.dt);
+        drawParticles(ctx);
+        updateSelectedUI();
+        samplePlotData();
+        drawPlot();
+        drawMinimap();
+        requestAnimationFrame(loop);
+      }
+      loop();
+    </script>
+  </body>
+</html>
