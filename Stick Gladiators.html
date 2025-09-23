@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Stick Gladiators: Super Evolve Tournament</title>
   <style>
-    /* Animated gradient background for extra cool vibes */
     @keyframes gradientBG {
       0% { background-position: 0% 50%; }
       50% { background-position: 100% 50%; }
@@ -18,71 +17,29 @@
       animation: gradientBG 15s ease infinite;
       overflow: hidden;
     }
-    canvas {
-      display: block;
-    }
-    /* Enhanced info panel styling with neon glow and shadow */
+    canvas { display: block; }
     #infoPanel {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(0, 0, 0, 0.8);
-      color: #0ff;
-      padding: 15px;
-      border-radius: 6px;
-      max-width: 1000px;
-      font-size: 15px;
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(0,0,0,0.8); color: #0ff; padding: 15px;
+      border-radius: 6px; max-width: 1000px; font-size: 15px;
       box-shadow: 0 0 10px #0ff;
     }
-    #infoPanel h3 {
-      margin: 0 0 10px 0;
-      text-shadow: 0 0 5px #0ff;
-    }
-    #infoPanel div {
-      margin-bottom: 5px;
-    }
-    #chromosomes p {
-      margin: 5px 0;
-      font-family: monospace;
-      font-size: 13px;
-    }
-    #sliderContainer, #superEvolveContainer {
-      margin-top: 10px;
-    }
-    #sliderContainer label, #superEvolveContainer label {
-      margin-right: 10px;
-    }
-    /* Champion banner that appears when a fighter wins */
+    #infoPanel h3 { margin: 0 0 10px 0; text-shadow: 0 0 5px #0ff; }
+    #infoPanel div { margin-bottom: 5px; }
+    #chromosomes p { margin: 5px 0; font-family: monospace; font-size: 13px; }
+    #sliderContainer, #superEvolveContainer { margin-top: 10px; }
+    #sliderContainer label, #superEvolveContainer label { margin-right: 10px; }
     #championBanner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(255, 255, 255, 0.95);
-      padding: 20px 30px;
-      border-radius: 8px;
-      font-size: 24px;
-      font-weight: bold;
-      color: #f44;
-      text-align: center;
-      box-shadow: 0 0 20px #f44;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.5s ease;
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(255,255,255,0.95); padding: 20px 30px; border-radius: 8px;
+      font-size: 24px; font-weight: bold; color: #f44; text-align: center;
+      box-shadow: 0 0 20px #f44; opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
     }
-    /* Super Evolve button styling */
     #superEvolveBtn {
-      padding: 6px 12px;
-      font-size: 14px;
-      background-color: #222;
-      color: #0ff;
-      border: 1px solid #0ff;
-      border-radius: 4px;
-      cursor: pointer;
+      padding: 6px 12px; font-size: 14px; background-color: #222; color: #0ff;
+      border: 1px solid #0ff; border-radius: 4px; cursor: pointer;
     }
-    #superEvolveBtn:hover {
-      background-color: #333;
-    }
+    #superEvolveBtn:hover { background-color: #333; }
   </style>
 </head>
 <body>
@@ -105,45 +62,47 @@
       <button id="superEvolveBtn">Activate</button>
     </div>
   </div>
-  
-  <!-- Champion Banner -->
+
   <div id="championBanner"></div>
 
-  <!-- Matter.js library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
   <script>
-    // Short, sassy, and slightly nerdy: the perfect code doc style.
+    // =========================
+    // Matter.js setup
+    // =========================
+    const { Engine, Render, World, Bodies, Body, Composite, Constraint, Events, Runner } = Matter;
 
-    // --- Matter.js Aliases ---
-    const { Engine, Render, World, Bodies, Body, Composite, Constraint, Events } = Matter;
-
-    // --- Basic Setup ---
     const engine = Engine.create();
     const world = engine.world;
     const canvas = document.getElementById('matterCanvas');
     const render = Render.create({
-      canvas: canvas,
-      engine: engine,
-      options: {
-        width: 800,
-        height: 500,
-        background: 'transparent',
-        wireframes: false
-      }
+      canvas,
+      engine,
+      options: { width: 800, height: 500, background: 'transparent', wireframes: false }
     });
     Render.run(render);
-    Engine.run(engine);
+    const runner = Runner.create();
+    Runner.run(runner, engine);
 
-    // --- Time Scale Controls ---
+    // =========================
+    // Tunables for hit rewards
+    // =========================
+    // Heal per hit scales with damage (capped); also a small combo-friendly timing bonus.
+    const HIT_HEAL_FACTOR = 0.20;   // heal = damage * factor (HP)
+    const HIT_HEAL_CAP    = 6.0;    // max heal per single hit
+    const HIT_COOLDOWN_BONUS = 6;   // frames removed from cooldownCounter
+    const HIT_MOVETIMER_BONUS = 6;  // frames removed from moveTimer
+
+    // Time Scale Control
     const timeSlider = document.getElementById('timeSlider');
     const timeDisplay = document.getElementById('timeDisplay');
-    timeSlider.addEventListener('input', (e) => {
-      const timeScaleValue = parseFloat(e.target.value);
-      engine.timing.timeScale = timeScaleValue;
-      timeDisplay.textContent = timeScaleValue.toFixed(1);
+    timeSlider.addEventListener('input', e => {
+      const val = parseFloat(e.target.value);
+      engine.timing.timeScale = val;
+      timeDisplay.textContent = val.toFixed(1);
     });
 
-    // --- Arena Walls ---
+    // Arena
     const wallOptions = { isStatic: true, render: { fillStyle: '#555' } };
     const ground = Bodies.rectangle(400, 490, 800, 20, wallOptions);
     const ceiling = Bodies.rectangle(400, 10, 800, 20, wallOptions);
@@ -151,39 +110,38 @@
     const rightWall = Bodies.rectangle(790, 250, 20, 500, wallOptions);
     World.add(world, [ground, ceiling, leftWall, rightWall]);
 
-    // --- Global Tournament Vars ---
-    let generation = 1;
-    let redFighter, blueFighter;
-    let tournamentOver = false;
-
-    // --- Sound Effects ---
+    // =========================
+    // Audio
+    // =========================
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContext();
-    function playImpactSound(volume = 0.5, frequency = 200) {
+    function playImpactSound(volume = 0.5, frequency = 200, dur = 0.08) {
       const osc = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      osc.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
+      const gain = audioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
-      gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.1);
+      osc.frequency.value = frequency;
+      gain.gain.value = volume;
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+      osc.start(now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.stop(now + dur);
     }
 
-    // --- Champion Banner ---
+    // =========================
+    // UI / Champion banner
+    // =========================
     const championBanner = document.getElementById('championBanner');
-    function showChampionBanner(championTeam) {
-      championBanner.textContent = `Champion: ${championTeam.toUpperCase()} wins!`;
+    function showChampionBanner(team) {
+      championBanner.textContent = `Champion: ${team.toUpperCase()} wins!`;
       championBanner.style.opacity = 1;
-      setTimeout(() => {
-        championBanner.style.opacity = 0;
-      }, 1500);
+      setTimeout(() => championBanner.style.opacity = 0, 1500);
     }
 
-    // --- Chromosome & Mutations ---
+    // =========================
+    // Genetics (as provided, kept compatible)
+    // =========================
     function createChromosome(team) {
-      // We'll tweak each stat range for red vs. blue to emphasize differences
       let punchMin, punchMax, cooldownMin, cooldownMax;
       let torsoWidthMin, torsoWidthMax;
       let torsoHeightMin, torsoHeightMax;
@@ -193,7 +151,6 @@
       let legThickMin, legThickMax;
 
       if (team === 'red') {
-        // Red: more power, shorter cooldown, bigger arms, etc.
         punchMin = 0.8;   punchMax = 1.6;
         cooldownMin = 20; cooldownMax = 40;
         torsoWidthMin = 30;  torsoWidthMax = 60;
@@ -203,7 +160,6 @@
         legLenMin = 50;   legLenMax = 90;
         legThickMin = 12; legThickMax = 18;
       } else {
-        // Blue: maybe a bit more cooldown, more variable torso, etc.
         punchMin = 0.3;   punchMax = 1.2;
         cooldownMin = 30; cooldownMax = 60;
         torsoWidthMin = 35;  torsoWidthMax = 70;
@@ -214,7 +170,6 @@
         legThickMin = 10; legThickMax = 16;
       }
 
-      // Randomize each stat from the chosen range
       const punchForce = (Math.random() * (punchMax - punchMin) + punchMin).toFixed(2);
       const cooldown = Math.floor(Math.random() * (cooldownMax - cooldownMin) + cooldownMin);
       const torsoWidth = Math.floor(Math.random() * (torsoWidthMax - torsoWidthMin) + torsoWidthMin);
@@ -224,354 +179,227 @@
       const legLength = Math.floor(Math.random() * (legLenMax - legLenMin) + legLenMin);
       const legThickness = Math.floor(Math.random() * (legThickMax - legThickMin) + legThickMin);
 
+      // New control genes (soft, longer moves)
+      const moveDurationMin = 30;   // frames
+      const moveDurationMax = 120;  // frames
+      const balanceGain = +(Math.random() * 0.4 + 0.4).toFixed(2);   // proportional gain for balance
+      const dampingGain = +(Math.random() * 0.4 + 0.4).toFixed(2);   // damping for smoothness
+
       return {
         punchForce,
         cooldown,
-        torsoWidth,
-        torsoHeight,
-        armLength,
-        armThickness,
-        legLength,
-        legThickness
+        torsoWidth, torsoHeight,
+        armLength, armThickness,
+        legLength, legThickness,
+        moveDurationMin, moveDurationMax,
+        balanceGain, dampingGain
       };
     }
 
-    function mutateGenome(genome) {
-      // up to ±30% random shift
-      function mutateValue(value) {
-        const factor = 1 + (Math.random() * 0.6 - 0.3);
-        return Math.max(1, Math.round(value * factor));
-      }
-      let newPunchForce = (
-        parseFloat(genome.punchForce) *
-        (1 + (Math.random() * 0.6 - 0.3))
-      ).toFixed(2);
-      let newCooldown = Math.max(
-        1,
-        Math.floor(genome.cooldown * (1 + (Math.random() * 0.6 - 0.3)))
-      );
+    function mutateGenome(g) {
+      function mv(v){ const f = 1 + (Math.random()*0.6-0.3); return Math.max(1, Math.round(v*f)); }
+      function clamp01(x){ return Math.max(0.1, Math.min(2.0, x)); }
+      let newPunch = (parseFloat(g.punchForce)*(1+(Math.random()*0.6-0.3))).toFixed(2);
+      let newCooldown = Math.max(5, Math.floor(g.cooldown*(1+(Math.random()*0.6-0.3))));
       return {
-        punchForce: newPunchForce,
+        punchForce: newPunch,
         cooldown: newCooldown,
-        torsoWidth: mutateValue(genome.torsoWidth),
-        torsoHeight: mutateValue(genome.torsoHeight),
-        armLength: mutateValue(genome.armLength),
-        armThickness: mutateValue(genome.armThickness),
-        legLength: mutateValue(genome.legLength),
-        legThickness: mutateValue(genome.legThickness)
+        torsoWidth: mv(g.torsoWidth),
+        torsoHeight: mv(g.torsoHeight),
+        armLength: mv(g.armLength),
+        armThickness: mv(g.armThickness),
+        legLength: mv(g.legLength),
+        legThickness: mv(g.legThickness),
+        moveDurationMin: Math.max(15, mv(g.moveDurationMin)),
+        moveDurationMax: Math.max(30, mv(g.moveDurationMax)),
+        balanceGain: +clamp01(g.balanceGain*(1+(Math.random()*0.6-0.3))).toFixed(2),
+        dampingGain: +clamp01(g.dampingGain*(1+(Math.random()*0.6-0.3))).toFixed(2)
       };
     }
 
-    function superMutateGenome(genome) {
-      // up to +50% or -30%
-      function superMutateValue(value) {
-        const factor = 1 + (Math.random() * 0.8 - 0.3);
-        return Math.max(1, Math.round(value * factor));
-      }
-      let newPunchForce = (
-        parseFloat(genome.punchForce) *
-        (1 + (Math.random() * 0.8 - 0.3))
-      ).toFixed(2);
-      let newCooldown = Math.max(
-        1,
-        Math.floor(genome.cooldown * (1 + (Math.random() * 0.8 - 0.3)))
-      );
+    function superMutateGenome(g) {
+      function mv(v){ const f = 1 + (Math.random()*0.8-0.3); return Math.max(1, Math.round(v*f)); }
+      function clamp01(x){ return Math.max(0.1, Math.min(2.0, x)); }
+      let newPunch = (parseFloat(g.punchForce)*(1+(Math.random()*0.8-0.3))).toFixed(2);
+      let newCooldown = Math.max(5, Math.floor(g.cooldown*(1+(Math.random()*0.8-0.3))));
       return {
-        punchForce: newPunchForce,
+        punchForce: newPunch,
         cooldown: newCooldown,
-        torsoWidth: superMutateValue(genome.torsoWidth),
-        torsoHeight: superMutateValue(genome.torsoHeight),
-        armLength: superMutateValue(genome.armLength),
-        armThickness: superMutateValue(genome.armThickness),
-        legLength: superMutateValue(genome.legLength),
-        legThickness: superMutateValue(genome.legThickness)
+        torsoWidth: mv(g.torsoWidth),
+        torsoHeight: mv(g.torsoHeight),
+        armLength: mv(g.armLength),
+        armThickness: mv(g.armThickness),
+        legLength: mv(g.legLength),
+        legThickness: mv(g.legThickness),
+        moveDurationMin: Math.max(10, mv(g.moveDurationMin)),
+        moveDurationMax: Math.max(20, mv(g.moveDurationMax)),
+        balanceGain: +clamp01(g.balanceGain*(1+(Math.random()*0.8-0.3))).toFixed(2),
+        dampingGain: +clamp01(g.dampingGain*(1+(Math.random()*0.8-0.3))).toFixed(2)
       };
     }
 
-    /**
-     * createGladiator: builds a 12-piece fighter with pill-shaped limbs & torso.
-     */
+    // =========================
+    // Joint Motion Controller
+    // =========================
+    function makeController(body, stiffness = 1.0, damping = 0.6) {
+      return {
+        body,
+        targetAngle: body.angle,
+        startAngle: body.angle,
+        duration: 60,        // frames
+        elapsed: 0,
+        active: false,
+        stiffness,
+        damping,
+        moveTo(targetAngle, durationFrames) {
+          this.startAngle = this.body.angle;
+          this.targetAngle = targetAngle;
+          this.duration = Math.max(5, durationFrames|0);
+          this.elapsed = 0;
+          this.active = true;
+        },
+        _ease(t) { return 0.5 - 0.5 * Math.cos(Math.PI * t); },
+        update() {
+          if (!this.active) return;
+          const t = Math.min(1, this.elapsed / this.duration);
+          const eased = this._ease(t);
+          const desired = this.startAngle + (this.targetAngle - this.startAngle) * eased;
+
+          const err = desired - this.body.angle;
+          const omega = this.body.angularVelocity;
+          const cmd = this.stiffness * err - this.damping * omega;
+
+          Body.setAngularVelocity(this.body, omega + cmd);
+
+          this.elapsed++;
+          if (this.elapsed >= this.duration) this.active = false;
+        }
+      };
+    }
+
+    function wrapAngle(a) {
+      while (a > Math.PI) a -= 2*Math.PI;
+      while (a < -Math.PI) a += 2*Math.PI;
+      return a;
+    }
+
+    // =========================
+    // Fighter construction
+    // =========================
     function createGladiator(x, color, team, chromosome) {
       const { torsoWidth, torsoHeight, armLength, armThickness, legLength, legThickness } = chromosome;
 
-      // We'll define a "chamfer" object for each rectangle to give them round edges
-      // effectively making them "pills."
-      // For torso, let's pick a chamfer radius that looks decent. We'll do about 1/4 the smaller dimension.
       const torsoChamfer = { radius: Math.min(torsoWidth, torsoHeight) * 0.25 };
+      const torso = Bodies.rectangle(x, 300, torsoWidth, torsoHeight, { chamfer: torsoChamfer, render: { fillStyle: color } });
+      const head = Bodies.circle(x, 300 - (torsoHeight / 2 + 20), 20, { render: { fillStyle: color } });
 
-      // Head is still a circle
-      const torso = Bodies.rectangle(x, 300, torsoWidth, torsoHeight, {
-        chamfer: torsoChamfer,
-        render: { fillStyle: color }
-      });
-      const head = Bodies.circle(x, 300 - (torsoHeight / 2 + 20), 20, {
-        render: { fillStyle: color }
-      });
-
-      // Offsets for limb attachment
       const shoulderOffsetY = torsoHeight / 4;
       const hipOffsetY = torsoHeight / 2;
 
-      // We'll define arms & legs as capsules with chamfer = half thickness
       const upperArmLen = armLength * 0.5;
       const forearmLen = armLength * 0.5;
       const armChamfer = { radius: armThickness / 2 };
 
-      // Left Upper Arm
-      const leftUpperArm = Bodies.rectangle(
-        x - torsoWidth / 2 - upperArmLen / 2,
-        300 - shoulderOffsetY,
-        upperArmLen,
-        armThickness,
-        {
-          chamfer: armChamfer,
-          render: { fillStyle: color }
-        }
-      );
-      // Left Forearm
-      const leftForearm = Bodies.rectangle(
-        leftUpperArm.position.x - forearmLen,
-        leftUpperArm.position.y,
-        forearmLen,
-        armThickness,
-        {
-          chamfer: armChamfer,
-          render: { fillStyle: color }
-        }
-      );
+      const leftUpperArm = Bodies.rectangle(x - torsoWidth / 2 - upperArmLen / 2, 300 - shoulderOffsetY, upperArmLen, armThickness, { chamfer: armChamfer, render: { fillStyle: color } });
+      const leftForearm  = Bodies.rectangle(leftUpperArm.position.x - forearmLen, leftUpperArm.position.y, forearmLen, armThickness, { chamfer: armChamfer, render: { fillStyle: color } });
+      const rightUpperArm = Bodies.rectangle(x + torsoWidth / 2 + upperArmLen / 2, 300 - shoulderOffsetY, upperArmLen, armThickness, { chamfer: armChamfer, render: { fillStyle: color } });
+      const rightForearm  = Bodies.rectangle(rightUpperArm.position.x + forearmLen, rightUpperArm.position.y, forearmLen, armThickness, { chamfer: armChamfer, render: { fillStyle: color } });
 
-      // Right Upper Arm
-      const rightUpperArm = Bodies.rectangle(
-        x + torsoWidth / 2 + upperArmLen / 2,
-        300 - shoulderOffsetY,
-        upperArmLen,
-        armThickness,
-        {
-          chamfer: armChamfer,
-          render: { fillStyle: color }
-        }
-      );
-      // Right Forearm
-      const rightForearm = Bodies.rectangle(
-        rightUpperArm.position.x + forearmLen,
-        rightUpperArm.position.y,
-        forearmLen,
-        armThickness,
-        {
-          chamfer: armChamfer,
-          render: { fillStyle: color }
-        }
-      );
-
-      // Legs
       const thighLen = legLength * 0.5;
       const calfLen = legLength * 0.5;
       const footHeight = 20;
       const legChamfer = { radius: legThickness / 2 };
       const footChamfer = { radius: footHeight / 2 };
 
-      // Left Thigh
-      const leftThigh = Bodies.rectangle(
-        x - torsoWidth / 4,
-        300 + hipOffsetY + thighLen / 2,
-        legThickness,
-        thighLen,
-        {
-          chamfer: legChamfer,
-          render: { fillStyle: color }
-        }
-      );
-      // Left Calf
-      const leftCalf = Bodies.rectangle(
-        leftThigh.position.x,
-        leftThigh.position.y + thighLen / 2 + calfLen / 2,
-        legThickness,
-        calfLen,
-        {
-          chamfer: legChamfer,
-          render: { fillStyle: color }
-        }
-      );
-      // Left Foot
-      const leftFoot = Bodies.rectangle(
-        leftCalf.position.x,
-        leftCalf.position.y + calfLen / 2 + footHeight / 2,
-        legThickness * 1.3,
-        footHeight,
-        {
-          chamfer: footChamfer,
-          render: { fillStyle: color }
-        }
-      );
+      const leftThigh = Bodies.rectangle(x - torsoWidth / 4, 300 + hipOffsetY + thighLen / 2, legThickness, thighLen, { chamfer: legChamfer, render: { fillStyle: color } });
+      const leftCalf  = Bodies.rectangle(leftThigh.position.x, leftThigh.position.y + thighLen / 2 + calfLen / 2, legThickness, calfLen, { chamfer: legChamfer, render: { fillStyle: color } });
+      const leftFoot  = Bodies.rectangle(leftCalf.position.x, leftCalf.position.y + calfLen / 2 + footHeight / 2, legThickness * 1.3, footHeight, { chamfer: footChamfer, render: { fillStyle: color } });
 
-      // Right Thigh
-      const rightThigh = Bodies.rectangle(
-        x + torsoWidth / 4,
-        300 + hipOffsetY + thighLen / 2,
-        legThickness,
-        thighLen,
-        {
-          chamfer: legChamfer,
-          render: { fillStyle: color }
-        }
-      );
-      // Right Calf
-      const rightCalf = Bodies.rectangle(
-        rightThigh.position.x,
-        rightThigh.position.y + thighLen / 2 + calfLen / 2,
-        legThickness,
-        calfLen,
-        {
-          chamfer: legChamfer,
-          render: { fillStyle: color }
-        }
-      );
-      // Right Foot
-      const rightFoot = Bodies.rectangle(
-        rightCalf.position.x,
-        rightCalf.position.y + calfLen / 2 + footHeight / 2,
-        legThickness * 1.3,
-        footHeight,
-        {
-          chamfer: footChamfer,
-          render: { fillStyle: color }
-        }
-      );
+      const rightThigh = Bodies.rectangle(x + torsoWidth / 4, 300 + hipOffsetY + thighLen / 2, legThickness, thighLen, { chamfer: legChamfer, render: { fillStyle: color } });
+      const rightCalf  = Bodies.rectangle(rightThigh.position.x, rightThigh.position.y + thighLen / 2 + calfLen / 2, legThickness, calfLen, { chamfer: legChamfer, render: { fillStyle: color } });
+      const rightFoot  = Bodies.rectangle(rightCalf.position.x, rightCalf.position.y + calfLen / 2 + footHeight / 2, legThickness * 1.3, footHeight, { chamfer: footChamfer, render: { fillStyle: color } });
 
-      // --- Constraints (Joints) ---
       const constraints = [
-        // Head <-> Torso
-        Constraint.create({
-          bodyA: head,
-          pointA: { x: 0, y: 20 },
-          bodyB: torso,
-          pointB: { x: 0, y: -torsoHeight / 2 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Torso <-> Left Upper Arm
-        Constraint.create({
-          bodyA: torso,
-          pointA: { x: -torsoWidth / 2, y: -shoulderOffsetY },
-          bodyB: leftUpperArm,
-          pointB: { x: upperArmLen / 2, y: 0 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Left Upper Arm <-> Left Forearm
-        Constraint.create({
-          bodyA: leftUpperArm,
-          pointA: { x: -upperArmLen / 2, y: 0 },
-          bodyB: leftForearm,
-          pointB: { x: forearmLen / 2, y: 0 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Torso <-> Right Upper Arm
-        Constraint.create({
-          bodyA: torso,
-          pointA: { x: torsoWidth / 2, y: -shoulderOffsetY },
-          bodyB: rightUpperArm,
-          pointB: { x: -upperArmLen / 2, y: 0 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Right Upper Arm <-> Right Forearm
-        Constraint.create({
-          bodyA: rightUpperArm,
-          pointA: { x: upperArmLen / 2, y: 0 },
-          bodyB: rightForearm,
-          pointB: { x: -forearmLen / 2, y: 0 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Torso <-> Left Thigh
-        Constraint.create({
-          bodyA: torso,
-          pointA: { x: -torsoWidth / 4, y: hipOffsetY },
-          bodyB: leftThigh,
-          pointB: { x: 0, y: -thighLen / 2 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Left Thigh <-> Left Calf
-        Constraint.create({
-          bodyA: leftThigh,
-          pointA: { x: 0, y: thighLen / 2 },
-          bodyB: leftCalf,
-          pointB: { x: 0, y: -calfLen / 2 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Left Calf <-> Left Foot
-        Constraint.create({
-          bodyA: leftCalf,
-          pointA: { x: 0, y: calfLen / 2 },
-          bodyB: leftFoot,
-          pointB: { x: 0, y: -footHeight / 2 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Torso <-> Right Thigh
-        Constraint.create({
-          bodyA: torso,
-          pointA: { x: torsoWidth / 4, y: hipOffsetY },
-          bodyB: rightThigh,
-          pointB: { x: 0, y: -thighLen / 2 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Right Thigh <-> Right Calf
-        Constraint.create({
-          bodyA: rightThigh,
-          pointA: { x: 0, y: thighLen / 2 },
-          bodyB: rightCalf,
-          pointB: { x: 0, y: -calfLen / 2 },
-          stiffness: 1,
-          length: 0
-        }),
-        // Right Calf <-> Right Foot
-        Constraint.create({
-          bodyA: rightCalf,
-          pointA: { x: 0, y: calfLen / 2 },
-          bodyB: rightFoot,
-          pointB: { x: 0, y: -footHeight / 2 },
-          stiffness: 1,
-          length: 0
-        })
+        Constraint.create({ bodyA: head, pointA: { x:0, y:20 }, bodyB: torso, pointB: { x:0, y:-torsoHeight/2 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: torso, pointA: { x:-torsoWidth/2, y:-shoulderOffsetY }, bodyB: leftUpperArm, pointB: { x: upperArmLen/2, y:0 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: leftUpperArm, pointA: { x:-upperArmLen/2, y:0 }, bodyB: leftForearm, pointB: { x: forearmLen/2, y:0 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: torso, pointA: { x: torsoWidth/2, y:-shoulderOffsetY }, bodyB: rightUpperArm, pointB: { x:-upperArmLen/2, y:0 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: rightUpperArm, pointA: { x: upperArmLen/2, y:0 }, bodyB: rightForearm, pointB: { x:-forearmLen/2, y:0 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: torso, pointA: { x:-torsoWidth/4, y: hipOffsetY }, bodyB: leftThigh, pointB: { x:0, y:-thighLen/2 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: leftThigh, pointA: { x:0, y: thighLen/2 }, bodyB: leftCalf, pointB: { x:0, y:-calfLen/2 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: leftCalf, pointA: { x:0, y: calfLen/2 }, bodyB: leftFoot, pointB: { x:0, y:-footHeight/2 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: torso, pointA: { x: torsoWidth/4, y: hipOffsetY }, bodyB: rightThigh, pointB: { x:0, y:-thighLen/2 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: rightThigh, pointA: { x:0, y: thighLen/2 }, bodyB: rightCalf, pointB: { x:0, y:-calfLen/2 }, stiffness: 1, length: 0 }),
+        Constraint.create({ bodyA: rightCalf, pointA: { x:0, y: calfLen/2 }, bodyB: rightFoot, pointB: { x:0, y:-footHeight/2 }, stiffness: 1, length: 0 })
       ];
 
-      // --- Bundle all parts into a Composite ---
-      const fighterParts = [
-        torso, head,
+      const parts = [ torso, head,
         leftUpperArm, leftForearm, rightUpperArm, rightForearm,
-        leftThigh, leftCalf, leftFoot,
-        rightThigh, rightCalf, rightFoot
-      ];
-      const fighter = Composite.create({ label: team });
-      Composite.add(fighter, [...fighterParts, ...constraints]);
+        leftThigh, leftCalf, leftFoot, rightThigh, rightCalf, rightFoot ];
 
-      // Attach references for collision/damage logic
-      fighterParts.forEach(body => body.fighter = fighter);
+      const fighter = Composite.create({ label: team });
+      Composite.add(fighter, [...parts, ...constraints]);
+
+      // Attach metadata
+      parts.forEach(b => b.fighter = fighter);
       fighter.torso = torso;
-      fighter.leftPunchArm = leftForearm;
-      fighter.rightPunchArm = rightForearm;
-      fighter.leftKickLeg = leftCalf;
-      fighter.rightKickLeg = rightCalf;
+      fighter.head = head;
+      fighter.leftUpperArm = leftUpperArm;
+      fighter.leftForearm = leftForearm;
+      fighter.rightUpperArm = rightUpperArm;
+      fighter.rightForearm = rightForearm;
+      fighter.leftThigh = leftThigh;
+      fighter.leftCalf = leftCalf;
+      fighter.leftFoot = leftFoot;
+      fighter.rightThigh = rightThigh;
+      fighter.rightCalf = rightCalf;
+      fighter.rightFoot = rightFoot;
+
       fighter.health = 100;
       fighter.team = team;
       fighter.chromosome = chromosome;
+
+      // Track a simple "score" for evolved bragging rights (optional display)
+      fighter.score = 0;
+
+      // Joint controllers: soft, longer moves than “wiggles”
+      const Kp = chromosome.balanceGain;   // proportional gain
+      const Kd = chromosome.dampingGain;   // damping gain
+
+      fighter.controllers = {
+        // Arms
+        lUpper: makeController(leftUpperArm, Kp, Kd),
+        lFore : makeController(leftForearm,  Kp, Kd),
+        rUpper: makeController(rightUpperArm, Kp, Kd),
+        rFore : makeController(rightForearm,  Kp, Kd),
+        // Legs
+        lThigh: makeController(leftThigh, Kp, Kd),
+        lCalf : makeController(leftCalf,  Kp, Kd),
+        rThigh: makeController(rightThigh, Kp, Kd),
+        rCalf : makeController(rightCalf,  Kp, Kd),
+        // Torso/head tiny stabilization (soft)
+        torso : makeController(torso, Kp*0.6, Kd*0.8),
+        headC : makeController(head,  Kp*0.5, Kd*0.8)
+      };
+
       fighter.cooldownCounter = 0;
+      fighter.moveTimer = 0; // schedule windows for moves
 
       return fighter;
     }
 
-    // --- Restart & Evolve ---
-    function restartTournament(championGenome, mutationFunction = mutateGenome) {
-      Composite.remove(world, redFighter);
-      Composite.remove(world, blueFighter);
+    // =========================
+    // Global tournament
+    // =========================
+    let generation = 1;
+    let redFighter, blueFighter;
+    let tournamentOver = false;
 
-      const newGenome = mutationFunction(championGenome);
+    function restartTournament(championGenome, mutation = mutateGenome) {
+      if (redFighter) Composite.remove(world, redFighter);
+      if (blueFighter) Composite.remove(world, blueFighter);
+
+      const newGenome = mutation(championGenome);
       redFighter = createGladiator(200, '#f44', 'red', newGenome);
       blueFighter = createGladiator(600, '#44f', 'blue', newGenome);
       World.add(world, [redFighter, blueFighter]);
@@ -581,107 +409,238 @@
       document.getElementById('redGene').textContent = JSON.stringify(newGenome);
       document.getElementById('blueGene').textContent = JSON.stringify(newGenome);
 
-      playImpactSound(0.5, 300);
+      playImpactSound(0.4, 320);
       tournamentOver = false;
     }
 
-    // --- Initialize Fighters ---
+    // Init
     let redChromosome = createChromosome('red');
     let blueChromosome = createChromosome('blue');
     redFighter = createGladiator(200, '#f44', 'red', redChromosome);
     blueFighter = createGladiator(600, '#44f', 'blue', blueChromosome);
     World.add(world, [redFighter, blueFighter]);
-
     document.getElementById('redGene').textContent = JSON.stringify(redChromosome);
     document.getElementById('blueGene').textContent = JSON.stringify(blueChromosome);
-    document.getElementById('generation').textContent = generation;
 
-    // --- Attack Logic (Before Update) ---
-    Events.on(engine, 'beforeUpdate', () => {
-      [redFighter, blueFighter].forEach(fighter => {
-        fighter.cooldownCounter--;
-        if (fighter.cooldownCounter <= 0) {
-          const direction = fighter.team === 'red' ? 1 : -1;
-          const force = parseFloat(fighter.chromosome.punchForce);
-          Body.setAngularVelocity(fighter.leftPunchArm, direction * force);
-          Body.setAngularVelocity(fighter.rightPunchArm, direction * force);
-          Body.setAngularVelocity(fighter.leftKickLeg, direction * force);
-          Body.setAngularVelocity(fighter.rightKickLeg, direction * force);
-          fighter.cooldownCounter = fighter.chromosome.cooldown;
+    // =========================
+    // AI: posture rewards, soft moves, longer actions
+    // =========================
+    function postureScore(f) {
+      // Higher score for being upright and tall
+      const headY = f.head.position.y;
+      const torsoAngle = Math.abs(wrapAngle(f.torso.angle));
+      const heightScore = Math.max(0, (480 - headY)); // lower y == taller
+      const angleScore = Math.max(0, (Math.PI/2 - torsoAngle)) * 100; // uprightness
+      return heightScore * 0.02 + angleScore * 0.5;
+    }
+
+    function isDown(f) {
+      // Consider "down" if head is near floor or torso way off
+      const headLow = f.head.position.y > 430;
+      const torsoTilt = Math.abs(wrapAngle(f.torso.angle)) > Math.PI/3; // ~60 deg
+      return headLow || torsoTilt;
+    }
+
+    function scheduleBalancedPose(f) {
+      // Keep torso near vertical; legs under torso; arms slightly forward
+      const dMin = f.chromosome.moveDurationMin;
+      const dMax = f.chromosome.moveDurationMax;
+      const dur = Math.floor(Math.random()*(dMax-dMin)+dMin);
+
+      const faceDir = (f.team === 'red') ? 1 : -1;
+      const slight = 0.25 * faceDir;
+
+      f.controllers.torso.moveTo(0, dur); // upright
+      f.controllers.headC.moveTo(0, dur * 0.8);
+
+      // Legs: thighs slightly forward, calves slight back for stance
+      f.controllers.lThigh.moveTo( 0.3 * faceDir, dur);
+      f.controllers.rThigh.moveTo( 0.2 * faceDir, dur);
+      f.controllers.lCalf.moveTo( -0.15 * faceDir, dur);
+      f.controllers.rCalf.moveTo( -0.10 * faceDir, dur);
+
+      // Arms: a light guard forward
+      f.controllers.lUpper.moveTo( slight, dur);
+      f.controllers.rUpper.moveTo( slight*0.8, dur);
+      f.controllers.lFore.moveTo( slight*0.5, dur);
+      f.controllers.rFore.moveTo( slight*0.4, dur);
+    }
+
+    function schedulePunchOrKick(f, opponent) {
+      // Choose a long-duration action: punch or kick with windup + strike angles
+      const dMin = f.chromosome.moveDurationMin;
+      const dMax = f.chromosome.moveDurationMax;
+      const dur = Math.floor(Math.random()*(dMax-dMin)+dMin);
+
+      const faceDir = (f.team === 'red') ? 1 : -1;
+      const far = Math.hypot(opponent.torso.position.x - f.torso.position.x,
+                             opponent.torso.position.y - f.torso.position.y);
+
+      if (far > 170) {
+        // Step/kick: swing lead leg forward, counterbalance with arms
+        const leadThigh = (faceDir > 0) ? f.rightThigh : f.leftThigh;
+        const leadCalf  = (faceDir > 0) ? f.rightCalf  : f.leftCalf;
+        const cThigh = (leadThigh === f.rightThigh) ? f.controllers.rThigh : f.controllers.lThigh;
+        const cCalf  = (leadCalf  === f.rightCalf ) ? f.controllers.rCalf  : f.controllers.lCalf;
+
+        cThigh.moveTo( 0.9 * faceDir, dur);   // raise thigh forward
+        cCalf.moveTo( -0.6 * faceDir, dur);   // extend lower leg
+
+        // Arms swing back slightly for balance
+        f.controllers.lUpper.moveTo(-0.2 * faceDir, dur);
+        f.controllers.rUpper.moveTo(-0.2 * faceDir, dur);
+        f.controllers.lFore.moveTo( -0.1 * faceDir, dur);
+        f.controllers.rFore.moveTo( -0.1 * faceDir, dur);
+      } else {
+        // Punch: forward extension (windup implicitly via easing over duration)
+        const leadUpper = (faceDir > 0) ? f.rightUpperArm : f.leftUpperArm;
+        const leadFore  = (faceDir > 0) ? f.rightForearm  : f.leftForearm;
+        const cUpper = (leadUpper === f.rightUpperArm) ? f.controllers.rUpper : f.controllers.lUpper;
+        const cFore  = (leadFore  === f.rightForearm ) ? f.controllers.rFore  : f.controllers.lFore;
+
+        const strike = 1.0 * faceDir;
+
+        cUpper.moveTo(strike, dur);
+        cFore.moveTo(strike*1.1, dur);
+
+        // Counterbalance
+        f.controllers.torso.moveTo(0.05 * faceDir, Math.max(30, Math.floor(dur*0.6)));
+      }
+    }
+
+    // Per-frame AI update
+    function updateAI(f, opponent) {
+      // Passive posture effects
+      const score = postureScore(f);
+      if (isDown(f)) {
+        // Penalize staying down: continuous HP bleed
+        f.health -= 0.20; // tune as needed
+      } else {
+        // Reward upright: small heal cap
+        f.health = Math.min(100, f.health + 0.10 + score*0.001);
+      }
+
+      // Simple scheduler for moves
+      if (f.moveTimer <= 0) {
+        if (isDown(f)) {
+          scheduleBalancedPose(f);
+          f.moveTimer = Math.floor((f.chromosome.moveDurationMin + f.chromosome.moveDurationMax)/2);
+        } else {
+          if (Math.random() < 0.45) {
+            scheduleBalancedPose(f);
+          } else {
+            schedulePunchOrKick(f, opponent);
+          }
+          f.moveTimer = Math.floor(Math.random()*(f.chromosome.moveDurationMax - f.chromosome.moveDurationMin) + f.chromosome.moveDurationMin);
         }
-      });
-    });
+      } else {
+        f.moveTimer--;
+      }
 
-    // --- After Update (Check health, scoreboard, etc.) ---
+      // Run controllers (soft motions, longer than a wiggle)
+      for (const key in f.controllers) f.controllers[key].update();
+    }
+
+    // =========================
+    // Combat & tournament logic
+    // =========================
     Events.on(engine, 'afterUpdate', () => {
-      document.getElementById('redStats').textContent = `Red: ${Math.max(0, redFighter.health.toFixed(0))}`;
+      // AI update AFTER physics step for stability
+      if (!tournamentOver) {
+        updateAI(redFighter, blueFighter);
+        updateAI(blueFighter, redFighter);
+      }
+
+      // UI
+      document.getElementById('redStats').textContent  = `Red: ${Math.max(0, redFighter.health.toFixed(0))}`;
       document.getElementById('blueStats').textContent = `Blue: ${Math.max(0, blueFighter.health.toFixed(0))}`;
 
+      // Win condition
       if (!tournamentOver) {
-        if (redFighter.health < 0) {
+        if (redFighter.health <= 0) {
           tournamentOver = true;
-          console.log(`Champion of Generation ${generation}: BLUE wins!`);
           showChampionBanner('blue');
-          setTimeout(() => {
-            restartTournament(blueFighter.chromosome);
-          }, 1000);
-        } else if (blueFighter.health < 0) {
+          setTimeout(() => restartTournament(blueFighter.chromosome), 1000);
+        } else if (blueFighter.health <= 0) {
           tournamentOver = true;
-          console.log(`Champion of Generation ${generation}: RED wins!`);
           showChampionBanner('red');
-          setTimeout(() => {
-            restartTournament(redFighter.chromosome);
-          }, 1000);
+          setTimeout(() => restartTournament(redFighter.chromosome), 1000);
         }
       }
     });
 
-    // --- Collision & Damage ---
-    Events.on(engine, 'collisionStart', event => {
-      event.pairs.forEach(pair => {
-        const { bodyA, bodyB } = pair;
+    // Collision-based damage + on-hit REWARDS
+    Events.on(engine, 'collisionStart', evt => {
+      evt.pairs.forEach(({ bodyA, bodyB }) => {
         if (!bodyA.fighter || !bodyB.fighter) return;
         if (bodyA.fighter === bodyB.fighter) return;
 
-        function isAttackLimb(body) {
-          const f = body.fighter;
-          return (
-            body === f.leftPunchArm ||
-            body === f.rightPunchArm ||
-            body === f.leftKickLeg ||
-            body === f.rightKickLeg
-          );
+        function isAttackLimb(b) {
+          const f = b.fighter;
+          return b === f.leftForearm || b === f.rightForearm || b === f.leftCalf || b === f.rightCalf;
         }
-        
+
+        // If either side is a striking limb, compute damage and apply.
         if (isAttackLimb(bodyA) || isAttackLimb(bodyB)) {
           const vx = bodyA.velocity.x - bodyB.velocity.x;
           const vy = bodyA.velocity.y - bodyB.velocity.y;
-          const impactSpeed = Math.sqrt(vx * vx + vy * vy);
-          const damage = Math.max(5, Math.floor(impactSpeed * 10));
-          
-          if (damage > 10) playImpactSound(0.4, 250);
+          const impact = Math.sqrt(vx*vx + vy*vy);
+          const damage = Math.max(4, Math.floor(impact * 9));
+          if (damage > 10) playImpactSound(0.4, 230);
 
+          // Determine attacker/defender for reward logic
           if (isAttackLimb(bodyA)) {
-            bodyB.fighter.health -= damage;
+            const attacker = bodyA.fighter;
+            const defender = bodyB.fighter;
+            defender.health -= damage;
+            attacker.score += damage;
+
+            // *** REWARD: heal a bit on clean hits (capped), plus small timing bonuses ***
+            const heal = Math.min(HIT_HEAL_CAP, damage * HIT_HEAL_FACTOR);
+            attacker.health = Math.min(100, attacker.health + heal);
+            attacker.cooldownCounter = Math.max(0, attacker.cooldownCounter - HIT_COOLDOWN_BONUS);
+            attacker.moveTimer = Math.max(0, attacker.moveTimer - HIT_MOVETIMER_BONUS);
           }
           if (isAttackLimb(bodyB)) {
-            bodyA.fighter.health -= damage;
+            const attacker = bodyB.fighter;
+            const defender = bodyA.fighter;
+            defender.health -= damage;
+            attacker.score += damage;
+
+            const heal = Math.min(HIT_HEAL_CAP, damage * HIT_HEAL_FACTOR);
+            attacker.health = Math.min(100, attacker.health + heal);
+            attacker.cooldownCounter = Math.max(0, attacker.cooldownCounter - HIT_COOLDOWN_BONUS);
+            attacker.moveTimer = Math.max(0, attacker.moveTimer - HIT_MOVETIMER_BONUS);
           }
         }
       });
     });
 
-    // --- Super Evolve Button ---
+    // Legacy "cooldown" tap to add snappiness; controllers keep it smooth.
+    Events.on(engine, 'beforeUpdate', () => {
+      [redFighter, blueFighter].forEach(f => {
+        f.cooldownCounter--;
+        if (f.cooldownCounter <= 0) {
+          const dir = (f.team === 'red') ? 1 : -1;
+          const force = parseFloat(f.chromosome.punchForce);
+
+          Body.setAngularVelocity(f.leftForearm,  f.leftForearm.angularVelocity  + dir * force * 0.1);
+          Body.setAngularVelocity(f.rightForearm, f.rightForearm.angularVelocity + dir * force * 0.1);
+          Body.setAngularVelocity(f.leftCalf,     f.leftCalf.angularVelocity     + dir * force * 0.08);
+          Body.setAngularVelocity(f.rightCalf,    f.rightCalf.angularVelocity    + dir * force * 0.08);
+
+          f.cooldownCounter = f.chromosome.cooldown;
+        }
+      });
+    });
+
+    // Super Evolve: mutate champion genome harder
     document.getElementById('superEvolveBtn').addEventListener('click', () => {
       let champion;
-      if (redFighter.health < 0) {
-        champion = blueFighter;
-      } else if (blueFighter.health < 0) {
-        champion = redFighter;
-      } else {
-        champion = redFighter.health >= blueFighter.health ? redFighter : blueFighter;
-      }
-      console.log(`Super Evolving champion from team ${champion.team}!`);
+      if (redFighter.health <= 0) champion = blueFighter;
+      else if (blueFighter.health <= 0) champion = redFighter;
+      else champion = (redFighter.health >= blueFighter.health) ? redFighter : blueFighter;
+
       restartTournament(champion.chromosome, superMutateGenome);
     });
   </script>
