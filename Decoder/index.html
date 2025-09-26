@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Harmonic Shape Forge — 5 Scrolls</title>
+  <meta name="description" content="Draw shapes using five harmonics between DC and a final frequency.">
+  <style>
+    :root{
+      --bg:#0b0b0c; --panel:#141418; --ink:#eaeaea; --muted:#9aa0a6; --accent:#64d2ff;
+      --stroke:#2a2a2f; --good:#37d67a; --warn:#ffbe55;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%} body{
+      margin:0; background:radial-gradient(1200px 800px at 20% -10%, #222 0%, #111 50%, #0b0b0c 100%) fixed;
+      color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+      display:grid; grid-template-rows:auto 1fr auto; gap:10px; padding:10px;
+    }
+    header, footer, .panel{
+      background:var(--panel); border:1px solid var(--stroke); border-radius:16px; padding:12px 14px;
+    }
+    header h1{margin:0; font-size:clamp(18px, 3.5vw, 26px)}
+    header p{margin:6px 0 0 0; color:var(--muted)}
+    .wrap{display:grid; grid-template-columns: 320px 1fr; gap:10px; min-height:0}
+    .panel{display:flex; flex-direction:column; gap:12px; min-height:0}
+    .group{border-top:1px solid var(--stroke); padding-top:10px}
+    .group:first-child{border-top:none; padding-top:0}
+    label{display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13px; color:var(--muted)}
+    input[type="range"]{width:100%}
+    .row{display:flex; gap:8px; flex-wrap:wrap}
+    button{
+      appearance:none; border:1px solid var(--stroke); background:#1a1a20; color:var(--ink);
+      padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:600; font-size:13px;
+    }
+    button:hover{border-color:#3a3a45}
+    button.primary{background:var(--accent); color:#0b0b0c; border-color:transparent}
+    small{color:var(--muted)}
+    #canvasBox{position:relative; background:linear-gradient(#0b0b0c,#0a0a0b); border:1px solid var(--stroke); border-radius:16px}
+    canvas{display:block; width:100%; height:100%;}
+    .legend{
+      position:absolute; top:10px; left:10px; background:rgba(0,0,0,.35); border:1px solid var(--stroke);
+      color:var(--ink); padding:8px 10px; border-radius:10px; font-size:12px
+    }
+    .pill{display:inline-block; padding:2px 8px; border-radius:999px; background:#1c1c22; border:1px solid var(--stroke); font-size:11px; color:var(--muted)}
+    .slider-row{display:grid; grid-template-columns:1fr 60px; gap:10px; align-items:center}
+    .value{font-variant-numeric:tabular-nums; width:60px; text-align:right; color:var(--ink)}
+    code{background:#101014; padding:2px 6px; border-radius:6px; border:1px solid var(--stroke)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Harmonic Shape Forge — <span class="pill">5 scrolls</span></h1>
+    <p>Sum five complex harmonics from DC to a final frequency. Dial amplitudes, watch the epicycles dance, and trace the curve.</p>
+  </header>
+
+  <div class="wrap">
+    <aside class="panel">
+      <div class="group">
+        <div class="row">
+          <button id="btnPlay" class="primary">Pause</button>
+          <button id="btnClear">Clear Trail</button>
+          <button id="btnSave">Save PNG</button>
+        </div>
+        <div class="row">
+          <button id="btnRandom">Randomize</button>
+          <button id="btnReset">Reset</button>
+          <select id="preset">
+            <option value="none">Preset: None</option>
+            <option value="flower">Preset: Petal Flower</option>
+            <option value="square">Preset: Boxy Loop</option>
+            <option value="star">Preset: Star-ish</option>
+            <option value="lissajous">Preset: Lissajous-ish</option>
+          </select>
+        </div>
+        <div class="row">
+          <button id="btnAddCircle">+ Add Circle</button>
+          <button id="btnRemoveCircle">− Remove Circle</button>
+          <span class="pill">Circles: <span id="labNum">5</span></span>
+        </div>
+      </div>
+
+      <div class="group">
+        <label>Speed <span id="labSpeed">1.00×</span></label>
+        <input id="rngSpeed" type="range" min="0.1" max="3" value="1" step="0.01" />
+        <label>Global Phase <span id="labPhase">0.00 rad</span></label>
+        <input id="rngPhase" type="range" min="-3.1416" max="3.1416" value="0" step="0.001" />
+        <label>Trail Length <span id="labTrail">2000 pts</span></label>
+        <input id="rngTrail" type="range" min="200" max="8000" value="2000" step="50" />
+        <label>Base Scale <span id="labScale">140 px</span></label>
+        <input id="rngScale" type="range" min="40" max="240" value="140" step="1" />
+      </div>
+
+      <div class="group">
+        <h3 style="margin:0 0 6px 0;font-size:14px;color:var(--ink)">Amplitudes (DC → final)</h3>
+        <small>Frequencies are spaced between DC and <code>f<sub>max</sub>=4·f<sub>base</sub></code>. Five scrolls = five complex vectors. Amplitude only; phases come from rotation.</small>
+        <div id="sliders"></div>
+      </div>
+
+      <div class="group">
+        <small>Pro tip: Add this file as <code>games/harmonics/index.html</code> and link it from your landing page.</small>
+      </div>
+    </aside>
+
+    <section id="canvasBox">
+      <canvas id="cnv"></canvas>
+      <div class="legend">
+  <div id="legendSum"><strong>Sum:</strong> z(t) = Σ A<sub>k</sub> · e<sup>i(2π f<sub>k</sub> t + φ)</sup>, k=0..4</div>
+        <div><small>DC → final frequency, evenly spaced | Left click = pause/resume.</small></div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <small>© <span id="y"></span> Santiago · MIT License · Built for GitHub Pages</small>
+  </footer>
+
+  <script>
+  ;(() => {
+    'use strict';
+
+    // ------- Parameters & State -------
+    let num = 5;                           // Harmonics: k = 0..num-1
+    const BASE_FREQ = 0.15;                // Base rotation speed (Hz-ish)
+    let freqs = [];
+    let amplitudes = [];
+    function rebuildFreqs(){ freqs = Array.from({length: num}, (_,k)=> k * BASE_FREQ); }
+    function setNumCircles(n){
+      const old = amplitudes.slice();
+      num = Math.max(1, Math.min(32, Math.floor(n)));
+      rebuildFreqs();
+      amplitudes = old.slice(0, num);
+      while (amplitudes.length < num) amplitudes.push(0.0);
+      buildSliders();
+      document.getElementById('labNum').textContent = String(num);
+      updateLegend();
+      trail.length = 0;
+    }
+    let globalPhase = 0.0;                 // Extra phase applied to all harmonics
+    let speed = 1.0;                       // Playback speed multiplier
+    let baseScale = 140;                   // Scale factor for canvas rendering
+    let trailMax = 2000;                   // Max trail samples
+    let running = true;                    // Play/Pause
+
+    // Trail buffer (ring)
+    const trail = [];
+    let t = 0;                             // Time in seconds (simulation time)
+    let lastTs = performance.now();
+
+    // ------- DOM -------
+    const cnv = document.getElementById('cnv');
+    const ctx = cnv.getContext('2d');
+    const box = document.getElementById('canvasBox');
+    const slidersHost = document.getElementById('sliders');
+    const btnPlay = document.getElementById('btnPlay');
+    const btnClear = document.getElementById('btnClear');
+    const btnSave = document.getElementById('btnSave');
+    const btnRandom = document.getElementById('btnRandom');
+    const btnReset = document.getElementById('btnReset');
+    const rngSpeed = document.getElementById('rngSpeed');
+    const rngPhase = document.getElementById('rngPhase');
+    const rngTrail = document.getElementById('rngTrail');
+    const rngScale = document.getElementById('rngScale');
+    const labSpeed = document.getElementById('labSpeed');
+    const labPhase = document.getElementById('labPhase');
+    const labTrail = document.getElementById('labTrail');
+    const labScale = document.getElementById('labScale');
+  const presetSel = document.getElementById('preset');
+  const btnAddCircle = document.getElementById('btnAddCircle');
+  const btnRemoveCircle = document.getElementById('btnRemoveCircle');
+  const labNum = document.getElementById('labNum');
+
+    document.getElementById('y').textContent = new Date().getFullYear();
+
+    // ------- UI Builders -------
+    function buildSliders(){
+      slidersHost.innerHTML = '';
+      for(let k=0; k<amplitudes.length; k++){
+        const row = document.createElement('div');
+        row.className = 'slider-row';
+        const wrap = document.createElement('div');
+        const lbl = document.createElement('label');
+        lbl.innerHTML = `A<sub>${k}</sub>  <span class="value" id="val${k}">${amplitudes[k].toFixed(2)}</span>`;
+        const rng = document.createElement('input');
+        rng.type = 'range';
+        rng.min = '0'; rng.max = '1.25'; rng.step = '0.01';
+        rng.value = amplitudes[k].toString();
+        rng.addEventListener('input', () => {
+          amplitudes[k] = parseFloat(rng.value);
+          document.getElementById('val'+k).textContent = amplitudes[k].toFixed(2);
+        });
+        wrap.appendChild(lbl);
+        wrap.appendChild(rng);
+        row.appendChild(wrap);
+        slidersHost.appendChild(row);
+      }
+    }
+
+    // ------- Resize Handling -------
+    function fitCanvas(){
+      const rect = box.getBoundingClientRect();
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      cnv.width  = Math.floor(rect.width * dpr);
+      cnv.height = Math.floor(rect.height * dpr);
+      cnv.style.width  = rect.width + 'px';
+      cnv.style.height = rect.height + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener('resize', fitCanvas, {passive:true});
+    fitCanvas();
+
+    // ------- Rendering -------
+    function computePoint(time){
+      // z(t) = Σ A_k * exp(i(2π f_k t + φ))
+      let x = 0, y = 0;
+      for(let k=0;k<amplitudes.length;k++){
+        const ang = 2*Math.PI*freqs[k]*time + globalPhase;
+        x += amplitudes[k] * Math.cos(ang);
+        y += amplitudes[k] * Math.sin(ang);
+      }
+      return {x:x*baseScale, y:y*baseScale};
+    }
+
+    function draw(){
+      // Clear background
+      ctx.clearRect(0,0,cnv.width,cnv.height);
+
+      // Center coordinates
+      const w = cnv.clientWidth, h = cnv.clientHeight;
+      ctx.save();
+      ctx.translate(w/2, h/2);
+
+      // Draw Trail
+      if(trail.length > 1){
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.beginPath();
+        for(let i=0;i<trail.length;i++){
+          const p = trail[i];
+          if(i===0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+      }
+
+      // Draw epicycle vectors (optional visual aid)
+      let px = 0, py = 0;
+      ctx.lineWidth = 1;
+      for(let k=0;k<amplitudes.length;k++){
+        const ang = 2*Math.PI*freqs[k]*t + globalPhase;
+        const vx = amplitudes[k] * Math.cos(ang) * baseScale;
+        const vy = amplitudes[k] * Math.sin(ang) * baseScale;
+
+        // radius circle
+        ctx.strokeStyle = 'rgba(100, 210, 255, 0.25)';
+        ctx.beginPath();
+        ctx.arc(px, py, Math.hypot(vx,vy), 0, Math.PI*2);
+        ctx.stroke();
+
+        // vector
+        ctx.strokeStyle = '#64d2ff';
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px+vx, py+vy);
+        ctx.stroke();
+
+        // move head
+        px += vx; py += vy;
+      }
+
+      // Draw head
+      ctx.fillStyle = '#64d2ff';
+      ctx.beginPath();
+      ctx.arc(px, py, 4, 0, Math.PI*2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // ------- Animation Loop -------
+    function step(ts){
+      const dt = (ts - lastTs) / 1000;
+      lastTs = ts;
+      if(running){
+        t += dt * speed;
+        const p = computePoint(t);
+        trail.push(p);
+        if(trail.length > trailMax) trail.shift();
+      }
+      draw();
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+
+    // ------- Controls -------
+    btnPlay.addEventListener('click', () => {
+      running = !running;
+      btnPlay.textContent = running ? 'Pause' : 'Play';
+      btnPlay.classList.toggle('primary', running);
+    });
+
+    cnv.addEventListener('click', () => btnPlay.click());
+
+    btnClear.addEventListener('click', () => {
+      trail.length = 0;
+    });
+
+    btnSave.addEventListener('click', () => {
+      // Temporarily draw without epicycle aids for a clean export
+      const backup = cnv.cloneNode(true);
+      const bctx = backup.getContext('2d');
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      backup.width = cnv.width; backup.height = cnv.height;
+      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // background
+      bctx.fillStyle = '#0b0b0c';
+      bctx.fillRect(0,0,backup.width, backup.height);
+      // trail only
+      const w = cnv.clientWidth, h = cnv.clientHeight;
+      bctx.save();
+      bctx.translate(w/2, h/2);
+      if(trail.length > 1){
+        bctx.lineWidth = 2;
+        bctx.strokeStyle = 'rgba(255,255,255,0.95)';
+        bctx.beginPath();
+        for(let i=0;i<trail.length;i++){
+          const p = trail[i];
+          if(i===0) bctx.moveTo(p.x, p.y); else bctx.lineTo(p.x, p.y);
+        }
+        bctx.stroke();
+      }
+      bctx.restore();
+
+      const link = document.createElement('a');
+      link.download = 'harmonic-shape.png';
+      link.href = backup.toDataURL('image/png');
+      link.click();
+    });
+
+    btnRandom.addEventListener('click', () => {
+      for(let k=0;k<amplitudes.length;k++){
+        // bias towards smaller higher-order amplitudes
+        const base = Math.max(0, 1.1 - 0.2*k);
+        amplitudes[k] = +(Math.random() * base).toFixed(2);
+        const val = document.getElementById('val'+k);
+        if(val){ val.textContent = amplitudes[k].toFixed(2); }
+        const slider = slidersHost.querySelectorAll('input[type="range"]')[k];
+        if(slider) slider.value = amplitudes[k];
+      }
+      trail.length = 0;
+    });
+
+    btnReset.addEventListener('click', () => {
+      for(let k=0;k<amplitudes.length;k++){
+        amplitudes[k] = k===0 ? 0.0 : (k===1 ? 0.6 : k===2 ? 0.35 : k===3 ? 0.2 : 0.0);
+        const val = document.getElementById('val'+k);
+        if(val){ val.textContent = amplitudes[k].toFixed(2); }
+        const slider = slidersHost.querySelectorAll('input[type="range"]')[k];
+        if(slider) slider.value = amplitudes[k];
+      }
+      globalPhase = 0; rngPhase.value = 0; labPhase.textContent = '0.00 rad';
+      speed = 1; rngSpeed.value = 1; labSpeed.textContent = '1.00×';
+      baseScale = 140; rngScale.value = 140; labScale.textContent = '140 px';
+      trailMax = 2000; rngTrail.value = 2000; labTrail.textContent = '2000 pts';
+      trail.length = 0;
+    });
+
+    rngSpeed.addEventListener('input', () => {
+      speed = parseFloat(rngSpeed.value);
+      labSpeed.textContent = speed.toFixed(2) + '×';
+    });
+    rngPhase.addEventListener('input', () => {
+      globalPhase = parseFloat(rngPhase.value);
+      labPhase.textContent = globalPhase.toFixed(2) + ' rad';
+    });
+    rngTrail.addEventListener('input', () => {
+      trailMax = parseInt(rngTrail.value,10);
+      labTrail.textContent = trailMax + ' pts';
+      if(trail.length > trailMax) trail.splice(0, trail.length - trailMax);
+    });
+    rngScale.addEventListener('input', () => {
+      baseScale = parseFloat(rngScale.value);
+      labScale.textContent = baseScale.toFixed(0) + ' px';
+      trail.length = 0; // rescale path
+    });
+
+    presetSel.addEventListener('change', () => {
+      const p = presetSel.value;
+      function setAmps(arr){
+        for(let k=0;k<amplitudes.length;k++){
+          amplitudes[k] = +((arr[k] ?? 0)).toFixed(2);
+          const vs = document.getElementById('val'+k);
+          if(vs) vs.textContent = amplitudes[k].toFixed(2);
+          const slider = slidersHost.querySelectorAll('input[type="range"]')[k];
+          if(slider) slider.value = amplitudes[k];
+        }
+        trail.length = 0;
+      }
+      switch(p){
+        case 'flower': setAmps([0.0, 0.9, 0.55, 0.35, 0.18]); globalPhase = 0; rngPhase.value=0; labPhase.textContent='0.00 rad'; break;
+        case 'square': setAmps([0.0, 0.85, 0.28, 0.18, 0.12]); globalPhase = Math.PI/4; rngPhase.value=globalPhase; labPhase.textContent=globalPhase.toFixed(2)+' rad'; break;
+        case 'star': setAmps([0.0, 1.0, 0.0, 0.35, 0.0]); globalPhase = 0; rngPhase.value=0; labPhase.textContent='0.00 rad'; break;
+        case 'lissajous': setAmps([0.1, 0.8, 0.0, 0.5, 0.0]); globalPhase = Math.PI/6; rngPhase.value=globalPhase; labPhase.textContent=globalPhase.toFixed(2)+' rad'; break;
+        default: break;
+      }
+    });
+
+    // Legend updater
+    function updateLegend(){
+      const el = document.getElementById('legendSum');
+      if (el) el.innerHTML = `<strong>Sum:</strong> z(t) = Σ A<sub>k</sub> · e<sup>i(2π f<sub>k</sub> t + φ)</sup>, k=0..${amplitudes.length-1}`;
+    }
+
+    // Add/Remove circle handlers
+    btnAddCircle.addEventListener('click', () => setNumCircles(num + 1));
+    btnRemoveCircle.addEventListener('click', () => setNumCircles(num - 1));
+
+    // Initialize defaults and build sliders
+    setNumCircles(5);
+    amplitudes[0] = 0.0; amplitudes[1] = 0.6; amplitudes[2] = 0.35; amplitudes[3] = 0.2;
+    buildSliders();
+    updateLegend();
+    labNum.textContent = String(num);
+  })();
+  </script>
+</body>
+</html>
