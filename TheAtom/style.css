@@ -1,0 +1,36 @@
+/* Shared styles extracted from index.html to keep UI consistent while we refactor to modules */
+:root{
+  --bg:#06070a; --panel:#11131a; --ink:#eaeef5; --muted:#9aa3ad; --stroke:#232634; --accent:#7cc0ff;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+     display:grid; grid-template-rows:auto 1fr; gap:8px; padding:8px}
+header, .panel{background:var(--panel); border:1px solid var(--stroke); border-radius:16px; padding:10px 12px}
+header h1{margin:0; font-size:clamp(18px,3.5vw,26px)}
+header p{margin:6px 0 0 0; color:var(--muted)}
+.wrap{display:grid; grid-template-columns: 320px 1fr; gap:8px; min-height:0}
+#stage{position:relative; border:1px solid var(--stroke); border-radius:16px; overflow:hidden; min-height:70vh; background:radial-gradient(1200px 800px at 50% 35%, rgba(60,70,110,.22), rgba(10,12,16,1))}
+canvas{display:block; width:100%; height:100%}
+.panel{display:flex; flex-direction:column; gap:12px; overflow:auto}
+.group{border-top:1px solid var(--stroke); padding-top:10px}
+.group:first-child{border-top:none; padding-top:0}
+.row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+button{appearance:none; border:1px solid var(--stroke); background:#1a1f2b; color:var(--ink); padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:600; font-size:13px}
+button:hover{border-color:#3a3f4d}
+button.primary{background:var(--accent); color:#071019; border-color:transparent}
+label{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; color:var(--muted)}
+input[type="range"]{width:100%}
+.slider-row{display:grid; grid-template-columns:1fr 76px; gap:10px; align-items:center}
+.value{font-variant-numeric:tabular-nums; text-align:right; width:76px; color:var(--ink)}
+.hud{position:absolute; right:8px; top:8px; background:rgba(0,0,0,.45); border:1px solid var(--stroke); color:#eaeaea; padding:6px 8px; border-radius:10px; font-size:12px; pointer-events:none; font-variant-numeric:tabular-nums}
+/* Periodic table overlay */
+.overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; place-items:center; z-index:10}
+.overlay .card{background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:12px; max-width:min(980px,95vw); max-height:90vh; overflow:auto}
+.ptable{display:grid; grid-template-columns: repeat(18, 34px); gap:4px;}
+.el{width:34px; height:34px; border:1px solid var(--stroke); border-radius:6px; display:grid; place-items:center; font-size:11px; cursor:pointer; background:#161a24}
+.el:hover{outline:2px solid var(--accent)}
+.ptable-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px}
+.ptable-head h3{margin:0; font-size:14px}
+.grp{margin:0 0 6px 0;font-size:14px;color:#eaeaea}
+.small{font-size:12px; color:#cfd6df; gap:12px}

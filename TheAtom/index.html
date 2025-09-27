@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Atom — MULTIGAMES</title>
+  <meta name="description" content="A minimalist atom toy: orbiting electrons around a glowing nucleus with smooth trails and simple controls." />
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='10' fill='%237cc0ff'/%3E%3Ccircle cx='10' cy='32' r='3' fill='%23ffffff'/%3E%3Ccircle cx='54' cy='32' r='3' fill='%23ffffff'/%3E%3Cellipse cx='32' cy='32' rx='26' ry='12' fill='none' stroke='%23a2b9ff' stroke-width='2'/%3E%3C/svg%3E"/>
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#06070a" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="The Atom" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="HandheldFriendly" content="true" />
+  <meta name="format-detection" content="telephone=no" />
+</head>
+<body>
+  <header>
+    <h1>The Atom — TDSE</h1>
+    <p>Time-dependent Schrödinger equation (2D hydrogenic, single electron). Choose element (Z), set photon energy and field amplitude, and watch |ψ|² evolve. Light “On” simulates photoelectric driving.</p>
+  </header>
+
+  <div class="wrap">
+    <aside class="panel">
+      <div class="group">
+        <div class="row">
+          <button id="btnPause" class="primary">Pause</button>
+          <button id="btnReset">Reset</button>
+        </div>
+      </div>
+      <div class="group">
+        <h3 style="margin:0 0 6px 0;font-size:14px;color:#eaeaea">Quantum Solver (TDSE)</h3>
+        <div class="row" style="gap:10px; align-items:center">
+          <button id="btnPickEl">Choose element</button>
+          <div style="font-size:12px;color:#cfd6df">Selected: <span id="curElement">H</span> (Z=<span id="curZ">1</span>)</div>
+        </div>
+        <div class="slider-row"><label>Grid N <span class="value" id="valTN">128</span></label><input id="rngTN" type="range" min="64" max="256" value="128" step="16"/></div>
+        <div class="slider-row"><label>Domain (a0) <span class="value" id="valTL">24</span></label><input id="rngTL" type="range" min="10" max="60" value="24" step="1"/></div>
+        <div class="slider-row"><label>Time scale <span class="value" id="valTS">1.00×</span></label><input id="rngTS" type="range" min="0.1" max="3.0" value="1.0" step="0.01"/></div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button id="btnTDSEReset">Reset to 1s</button>
+          <button id="btnBuildGS" title="Imaginary-time propagation to ground state">Build ground state</button>
+          <button id="btnLight">Light: Off</button>
+        </div>
+        <div class="slider-row"><label>Photon energy <span class="value" id="valPE">20.0 eV</span></label><input id="rngPE" type="range" min="5" max="60" value="20" step="0.5"/></div>
+        <div class="slider-row"><label>Field amplitude <span class="value" id="valE0">0.02</span></label><input id="rngE0" type="range" min="0" max="0.1" value="0.02" step="0.002"/></div>
+        <div class="row" style="gap:10px">
+          <label>Gauge
+            <select id="selGauge">
+              <option value="length" selected>Length</option>
+              <option value="velocity">Velocity</option>
+            </select>
+          </label>
+        </div>
+        <div class="row" style="gap:10px">
+          <label>Colormap
+            <select id="selMap">
+              <option value="turbo" selected>Turbo</option>
+              <option value="viridis">Viridis</option>
+              <option value="gray">Gray</option>
+            </select>
+          </label>
+        </div>
+        <small>Single-electron hydrogenic model in atomic units. Many-electron effects are not yet included.</small>
+      </div>
+      <div class="group">
+        <h3 style="margin:0 0 6px 0;font-size:14px;color:#eaeaea">Visuals</h3>
+        <div class="slider-row"><label>Trail fade <span class="value" id="valFade">0.10</span></label><input id="rngFade" type="range" min="0.02" max="0.35" value="0.10" step="0.01"/></div>
+        <div class="slider-row"><label>Nucleus size <span class="value" id="valNuc">26</span></label><input id="rngNuc" type="range" min="8" max="64" value="26" step="1"/></div>
+      </div>
+      <div class="group">
+        <h3 class="grp">Accuracy</h3>
+        <div class="row small" id="accuracyPanel">
+          <div>Norm: <span id="accNorm">1.000000</span></div>
+          <div>E: <span id="accEnergy">-0.500</span></div>
+          <div>Emitted: <span id="accEmitted">0.00%</span></div>
+          <div>⟨x⟩: <span id="accDx">0.000</span></div>
+          <div>⟨y⟩: <span id="accDy">0.000</span></div>
+        </div>
+      </div>
+      <div class="group">
+        <details>
+          <summary>Advanced</summary>
+          <div class="slider-row"><label>CAP η <span class="value" id="valEta">0.5</span></label><input id="rngEta" type="range" min="0" max="2" value="0.5" step="0.01"/></div>
+          <div class="slider-row"><label>CAP power m <span class="value" id="valM">2</span></label><input id="rngM" type="range" min="1" max="6" value="2" step="1"/></div>
+          <div class="slider-row"><label>CAP start (Rcap/a0) <span class="value" id="valRcap">8</span></label><input id="rngRcap" type="range" min="2" max="30" value="8" step="1"/></div>
+          <div class="slider-row"><label>Soft-core ε <span class="value" id="valEps">0.3</span></label><input id="rngEps" type="range" min="0.1" max="1.0" value="0.3" step="0.05"/></div>
+          <div class="slider-row"><label>Solver dt <span class="value" id="valDt">0.0010</span></label><input id="rngDt" type="range" min="0.0005" max="0.004" value="0.001" step="0.0001"/></div>
+        </details>
+      </div>
+      <div class="group">
+        <h3 class="grp">Performance</h3>
+        <div class="row small" id="perfPanel">
+          <div>Frame: <span id="perfFrame">0.0 ms</span></div>
+          <div>Solve: <span id="perfSolve">0.0 ms</span></div>
+          <div>Grid: <span id="perfGrid">128</span></div>
+          <div>dt: <span id="perfDt">0.001</span></div>
+          <div>GC: <span id="perfGC">0</span></div>
+        </div>
+        <div class="row small" style="flex-direction:column; align-items:stretch">
+          <div>Dipole x and accel x (sparkline)</div>
+          <canvas id="spark" width="280" height="48" style="width:100%; height:48px; border:1px solid var(--stroke); border-radius:6px; background:#0a0d14"></canvas>
+        </div>
+      </div>
+    </aside>
+
+    <section id="stage">
+      <canvas id="canvas"></canvas>
+  <div class="hud" id="hud">fps 0 | TDSE N 128 | Z 1</div>
+    </section>
+  </div>
+
+  <!-- Periodic table overlay -->
+  <div class="overlay" id="ptableOverlay">
+    <div class="card">
+      <div class="ptable-head">
+        <h3>Periodic Table (click an element)</h3>
+        <button id="btnClosePT">Close</button>
+      </div>
+      <div class="ptable" id="ptable"></div>
+    </div>
+  </div>
+  <script type="module" src="./tdseApp.js"></script>
+</body>
+</html>
