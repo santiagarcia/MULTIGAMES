@@ -2,7 +2,7 @@
   Title: Overlapped 3D — Interfering Dots (No Rods)
   Author: Santiago Garcia and contributors
   License: MIT
-  Usage: Left-drag to pull the nearest point with a spring. Right-click to pin/unpin. Space toggles pause.
+  Usage: Left-drag to pull the nearest point with a spring. Right-drag to orbit (fallback provided). Alt/Shift+Right-click to pin/unpin. Space toggles pause.
          Sidebar sliders control time scale, damping, mouse spring, point size, per-cloud stiffness, and cross-cloud coupling.
          Toggle Grid/Axes. window.api exposes: setCoupling(k,r), setStiffness(k1,k2,k3,k4), pulse(), randomImpulse(seed), pause(bool), reset(), seedRandom(seed).
 -->
@@ -46,7 +46,7 @@
 <body>
   <header>
     <h1>Overlapped 3D — <span style="color:#9ad9ff">Interfering Dots</span> <span style="font-size:12px; color:#9aa0a6">(No Rods)</span></h1>
-    <p>Four overlapped point clouds with Laplacian cohesion and Gaussian cross-cloud coupling. Left-drag: spring grab. Right-click: pin/unpin. Space: pause.</p>
+  <p>Four overlapped point clouds. Left-drag: spring grab. Right-drag: orbit. Alt/Shift+Right-click: pin/unpin. Wheel: zoom. Space: pause.</p>
   </header>
 
   <div class="wrap">
@@ -57,6 +57,7 @@
           <button id="btnReset" title="Reset simulation to rest state">Reset</button>
           <button id="btnPulse" title="Radial outward velocity pulse">Pulse</button>
           <button id="btnRand" title="Seeded random velocity impulse">Random Impulse</button>
+          <button id="btnWave" title="Send wavelet at cursor (Shift+Click on view also works)">Wavelet</button>
         </div>
         <div class="key" aria-label="Legend">
           <span><span class="swatch" style="background:#00ff99"></span> Cloud A (12×12 @ 1.1)</span>
@@ -72,6 +73,42 @@
         <div class="slider-row"><label title="Velocity damping 0..0.08">Damping <span class="value" id="valDamp">0.020</span></label><input id="rngDamp" type="range" min="0" max="0.08" value="0.02" step="0.001"/></div>
         <div class="slider-row"><label title="Mouse spring stiffness">Mouse-k <span class="value" id="valMouseK">260</span></label><input id="rngMouseK" type="range" min="50" max="1000" value="260" step="1"/></div>
         <div class="slider-row"><label title="Point size in world units">Point size <span class="value" id="valPSize">0.10</span></label><input id="rngPSize" type="range" min="0.02" max="0.40" value="0.10" step="0.01"/></div>
+        <div class="slider-row"><label title="Particle count preset">Resolution <span class="value" id="valRes">Default</span></label>
+          <select id="selRes" title="Increase grid resolutions">
+            <option value="default">Default</option>
+            <option value="high">High</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="group">
+        <h3 style="margin:0 0 6px 0;font-size:14px;color:#eaeaea">Meshes</h3>
+        <div class="row" style="gap:12px; align-items:end">
+          <div style="min-width:72px"><label>A cols<input id="numACols" type="number" min="6" max="128" step="1" value="12" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>rows<input id="numARows" type="number" min="6" max="128" step="1" value="12" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>layers<input id="numALay" type="number" min="1" max="64" step="1" value="1" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>spacing<input id="numASp" type="number" min="0.5" max="2.0" step="0.1" value="1.1" style="width:72px"></label></div>
+        </div>
+        <div class="row" style="gap:12px; align-items:end">
+          <div style="min-width:72px"><label>B cols<input id="numBCols" type="number" min="6" max="128" step="1" value="16" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>rows<input id="numBRows" type="number" min="6" max="128" step="1" value="14" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>layers<input id="numBLay" type="number" min="1" max="64" step="1" value="1" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>spacing<input id="numBSp" type="number" min="0.5" max="2.0" step="0.1" value="1.0" style="width:72px"></label></div>
+        </div>
+        <div class="row" style="gap:12px; align-items:end">
+          <div style="min-width:72px"><label>C cols<input id="numCCols" type="number" min="6" max="128" step="1" value="20" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>rows<input id="numCRows" type="number" min="6" max="128" step="1" value="16" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>layers<input id="numCLay" type="number" min="1" max="64" step="1" value="1" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>spacing<input id="numCSp" type="number" min="0.5" max="2.0" step="0.1" value="0.9" style="width:72px"></label></div>
+        </div>
+        <div class="row" style="gap:12px; align-items:end">
+          <div style="min-width:72px"><label>D cols<input id="numDCols" type="number" min="6" max="128" step="1" value="26" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>rows<input id="numDRows" type="number" min="6" max="128" step="1" value="20" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>layers<input id="numDLay" type="number" min="1" max="64" step="1" value="1" style="width:72px"></label></div>
+          <div style="min-width:72px"><label>spacing<input id="numDSp" type="number" min="0.5" max="2.0" step="0.1" value="0.8" style="width:72px"></label></div>
+        </div>
+        <div class="row"><button id="btnApplyMeshes" title="Rebuild with the custom dimensions">Apply</button></div>
       </div>
 
       <div class="group">
@@ -131,23 +168,79 @@
     var camera = new THREE.PerspectiveCamera(55, stage.clientWidth/stage.clientHeight, 0.1, 2000);
     camera.position.set(18, 12, 22);
   // Orbit controls (fallback to no-op if library fails to load)
-  var controls = (THREE.OrbitControls) ? new THREE.OrbitControls(camera, renderer.domElement) : { enableDamping:false, update:function(){}, target:{ set:function(){}} };
+  var hasOrbit = (typeof THREE.OrbitControls === 'function');
+  var controls = hasOrbit ? new THREE.OrbitControls(camera, renderer.domElement) : { enableDamping:false, update:function(){}, target:{ set:function(){} } };
   // Focus the origin so the overlapped clouds are in view on the first frame
-  if(typeof THREE.OrbitControls === 'function') { controls.enableDamping = true; controls.dampingFactor = 0.08; controls.target.set(0,0,0); controls.update(); }
+  if(hasOrbit) { controls.enableDamping = true; controls.dampingFactor = 0.08; controls.target.set(0,0,0); controls.update(); }
   else { camera.lookAt(0,0,0); }
+  // Remap buttons: right-drag = orbit, left-drag = pan, wheel = dolly
+  if(hasOrbit && THREE.MOUSE){
+    controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+    // Prevent context menu so right-drag is smooth
+    renderer.domElement.addEventListener('mousedown', function(e){ if(e.button===2){ e.preventDefault(); } });
+  }
+  // Wheel zoom fallback when OrbitControls is not available
+  var fallbackTarget = new THREE.Vector3(0,0,0);
+  function onWheelFallback(e){
+    e.preventDefault();
+    var factor = Math.exp((e.deltaY||0) * 0.001);
+    var p = camera.position.clone().sub(fallbackTarget).multiplyScalar(factor).add(fallbackTarget);
+    camera.position.copy(p);
+    camera.updateProjectionMatrix();
+  }
+  if(!hasOrbit){ renderer.domElement.addEventListener('wheel', onWheelFallback, {passive:false}); }
+  // Right-drag orbit fallback when OrbitControls is unavailable
+  var orbiting = false, lastX = 0, lastY = 0;
+  var spherical = new THREE.Spherical();
+  function startOrbit(e){
+    orbiting = true; lastX = e.clientX; lastY = e.clientY;
+    var off = camera.position.clone().sub(fallbackTarget);
+    spherical.setFromVector3(off);
+  }
+  function moveOrbit(e){
+    var dx = e.clientX - lastX, dy = e.clientY - lastY; lastX = e.clientX; lastY = e.clientY;
+    var ROT_SPEED = 0.005;
+    spherical.theta -= dx * ROT_SPEED;
+    spherical.phi   -= dy * ROT_SPEED;
+    var eps = 1e-3; spherical.phi = Math.max(eps, Math.min(Math.PI - eps, spherical.phi));
+    var off = new THREE.Vector3().setFromSpherical(spherical);
+    camera.position.copy(off.add(fallbackTarget));
+    camera.lookAt(fallbackTarget);
+    camera.updateProjectionMatrix();
+  }
 
     var gridHelper = new THREE.GridHelper(100, 100, 0x222222, 0x222222); gridHelper.material.opacity=0.35; gridHelper.material.transparent=true; scene.add(gridHelper);
     var axesHelper = new THREE.AxesHelper(3); scene.add(axesHelper);
 
     // UI elements
-    var btnPause = document.getElementById('btnPause');
+  var btnPause = document.getElementById('btnPause');
     var btnReset = document.getElementById('btnReset');
     var btnPulse = document.getElementById('btnPulse');
-    var btnRand = document.getElementById('btnRand');
+  var btnRand = document.getElementById('btnRand');
+  var btnWave = document.getElementById('btnWave');
     var rngTime = document.getElementById('rngTime');
     var rngDamp = document.getElementById('rngDamp');
     var rngMouseK = document.getElementById('rngMouseK');
     var rngPSize = document.getElementById('rngPSize');
+  var selRes = document.getElementById('selRes');
+  // Mesh controls
+  var numACols = document.getElementById('numACols');
+  var numARows = document.getElementById('numARows');
+  var numALay = document.getElementById('numALay');
+  var numASp = document.getElementById('numASp');
+  var numBCols = document.getElementById('numBCols');
+  var numBRows = document.getElementById('numBRows');
+  var numBLay = document.getElementById('numBLay');
+  var numBSp = document.getElementById('numBSp');
+  var numCCols = document.getElementById('numCCols');
+  var numCRows = document.getElementById('numCRows');
+  var numCLay = document.getElementById('numCLay');
+  var numCSp = document.getElementById('numCSp');
+  var numDCols = document.getElementById('numDCols');
+  var numDRows = document.getElementById('numDRows');
+  var numDLay = document.getElementById('numDLay');
+  var numDSp = document.getElementById('numDSp');
+  var btnApplyMeshes = document.getElementById('btnApplyMeshes');
     var rngK1 = document.getElementById('rngK1');
     var rngK2 = document.getElementById('rngK2');
     var rngK3 = document.getElementById('rngK3');
@@ -156,11 +249,13 @@
     var rngR = document.getElementById('rngR');
     var chkGrid = document.getElementById('chkGrid');
     var chkAxes = document.getElementById('chkAxes');
+  var keyLegend = document.querySelector('.panel .key');
 
     var valTime = document.getElementById('valTime');
     var valDamp = document.getElementById('valDamp');
     var valMouseK = document.getElementById('valMouseK');
     var valPSize = document.getElementById('valPSize');
+  var valRes = document.getElementById('valRes');
     var valK1 = document.getElementById('valK1');
     var valK2 = document.getElementById('valK2');
     var valK3 = document.getElementById('valK3');
@@ -179,17 +274,37 @@
       valK4.textContent = (+rngK4.value).toFixed(0);
       valKc.textContent = (+rngKc.value).toFixed(0);
       valR.textContent = (+rngR.value).toFixed(2);
+      if(valRes){ valRes.textContent = selRes && selRes.value==='high' ? 'High' : 'Default'; }
     }
     syncLabels();
 
     // ======================== Simulation parameters ========================
     // Cloud definitions: columns, rows, spacing, color
-    var clouds = [
-      { name:'A', cols:12, rows:12, spacing:1.1, color:0x00ff99 },
-      { name:'B', cols:16, rows:14, spacing:1.0, color:0xff66cc },
-      { name:'C', cols:20, rows:16, spacing:0.9, color:0xffd166 },
-      { name:'D', cols:26, rows:20, spacing:0.8, color:0x7cff7c }
-    ];
+    function getPreset(def){
+      if(def==='high'){
+        return [
+          { name:'A', cols:24, rows:24, layers:1, spacing:1.1, color:0x00ff99 },
+          { name:'B', cols:32, rows:28, layers:1, spacing:1.0, color:0xff66cc },
+          { name:'C', cols:40, rows:32, layers:1, spacing:0.9, color:0xffd166 },
+          { name:'D', cols:52, rows:40, layers:1, spacing:0.8, color:0x7cff7c }
+        ];
+      }
+      if(def==='custom'){
+        return [
+          { name:'A', cols: clamp(+numACols.value|0,6,128), rows: clamp(+numARows.value|0,6,128), layers: clamp(+numALay.value|0,1,64), spacing: clamp(+numASp.value,0.5,2.0), color:0x00ff99 },
+          { name:'B', cols: clamp(+numBCols.value|0,6,128), rows: clamp(+numBRows.value|0,6,128), layers: clamp(+numBLay.value|0,1,64), spacing: clamp(+numBSp.value,0.5,2.0), color:0xff66cc },
+          { name:'C', cols: clamp(+numCCols.value|0,6,128), rows: clamp(+numCRows.value|0,6,128), layers: clamp(+numCLay.value|0,1,64), spacing: clamp(+numCSp.value,0.5,2.0), color:0xffd166 },
+          { name:'D', cols: clamp(+numDCols.value|0,6,128), rows: clamp(+numDRows.value|0,6,128), layers: clamp(+numDLay.value|0,1,64), spacing: clamp(+numDSp.value,0.5,2.0), color:0x7cff7c }
+        ];
+      }
+      return [
+        { name:'A', cols:12, rows:12, layers:1, spacing:1.1, color:0x00ff99 },
+        { name:'B', cols:16, rows:14, layers:1, spacing:1.0, color:0xff66cc },
+        { name:'C', cols:20, rows:16, layers:1, spacing:0.9, color:0xffd166 },
+        { name:'D', cols:26, rows:20, layers:1, spacing:0.8, color:0x7cff7c }
+      ];
+    }
+    var clouds = getPreset('default');
     var numClouds = clouds.length;
     var N = 0; // total particles
     var cOffsets = new Int32Array(numClouds+1); // [0..numClouds] cumulative
@@ -197,15 +312,17 @@
 
     // Per-particle SoA arrays
     var px, py, pz, vx, vy, vz, fx, fy, fz, pins, restX, restY, restZ;
-    // 4-neighbor indices (-1 sentinel). Length N each.
-    var nL, nR, nU, nD;
+  // 4-neighbor indices (-1 sentinel). Length N each.
+  var nL, nR, nU, nD;
+  // Internal structural spring edges (solid-like), built once from lattice
+  var eI = new Int32Array(0), eJ = new Int32Array(0), eL0 = new Float32Array(0), eCount = 0;
 
-    // Spatial hash (intrusive linked lists)
-    var cellSize = 2.0 * 0.9; // initial max(0.8, 0.9*r)
-    var rCouple = 2.0, r2 = rCouple*rCouple;
-    var kCouple = 180.0;
-    var BUCKETS = 8192; // power of two for masking
-    var head, next, cellX, cellY, cellZ;
+  // Spatial hash (used for pair building only)
+  var cellSize = 2.0 * 0.9; // initial max(0.8, 0.9*r)
+  var rCouple = 2.0, r2 = rCouple*rCouple;
+  var kCouple = 180.0;
+  var BUCKETS = 8192; // power of two for masking
+  var head, next, cellX, cellY, cellZ;
     var neighborOffsets = new Int8Array(27*3); // 27 triplets
 
     // Rendering objects per cloud
@@ -226,11 +343,11 @@
       this.mat = mat; this.geom = geom;
       this.points = new THREE.Points(geom, mat);
     }
-    var renders = [];
+  var renders = [];
 
     // Per-cloud internal stiffness
     var k1=120, k2=160, k3=220, k4=280; // defaults
-    var tetherK = 0.5; // mild tether to rest to prevent drift
+  var tetherK = 0.0; // no tether (no drains)
     var damping = 0.02; // default, updated from UI
     var timeScale = 1.0;
     var mouseK = 260.0;
@@ -238,7 +355,7 @@
     // Picking & dragging state (reused temps to avoid allocs)
     var raycaster = new THREE.Raycaster();
     var mouseNDC = new THREE.Vector2();
-    var grabbing = -1; // index or -1
+  var grabbing = -1; // index or -1
     var plane = new THREE.Plane();
     var camDir = new THREE.Vector3();
     var ray = new THREE.Ray();
@@ -258,7 +375,8 @@
       cOffsets[0]=0;
       for(i=0;i<numClouds;i++){
         c = clouds[i];
-        c.count = c.cols*c.rows;
+        var layers = (c.layers|0)||1;
+        c.count = c.cols*c.rows*layers;
         cOffsets[i+1] = cOffsets[i] + c.count;
       }
       N = cOffsets[numClouds];
@@ -269,7 +387,7 @@
       fx=new Float32Array(N); fy=new Float32Array(N); fz=new Float32Array(N);
       pins=new Uint8Array(N);
       restX=new Float32Array(N); restY=new Float32Array(N); restZ=new Float32Array(N);
-      nL=new Int32Array(N); nR=new Int32Array(N); nU=new Int32Array(N); nD=new Int32Array(N);
+  nL=new Int32Array(N); nR=new Int32Array(N); nU=new Int32Array(N); nD=new Int32Array(N);
       cloudId=new Int8Array(N);
 
       // spatial hash arrays
@@ -284,37 +402,58 @@
       }
 
       // place clouds around origin with small offsets for visibility
+      // All clouds share the same center (full overlap)
       var centers = [
-        [ -2.0, 0.0, -1.6 ],
-        [  2.0, 0.0, -1.0 ],
-        [ -1.2, 0.0,  2.0 ],
-        [  1.2, 0.0,  1.5 ]
+        [ 0.0, 0.0, 0.0 ],
+        [ 0.0, 0.0, 0.0 ],
+        [ 0.0, 0.0, 0.0 ],
+        [ 0.0, 0.0, 0.0 ]
       ];
 
       for(i=0;i<numClouds;i++){
-        c = clouds[i]; cols=c.cols; rows=c.rows; spacing=c.spacing; start=cOffsets[i]; end=cOffsets[i+1]; count=end-start;
+        c = clouds[i]; cols=c.cols|0; rows=c.rows|0; var layers=(c.layers|0)||1; spacing=c.spacing; start=cOffsets[i]; end=cOffsets[i+1]; count=end-start;
         var cx=centers[i][0], cy=centers[i][1], cz=centers[i][2];
         var ox = - (cols-1)*0.5*spacing;
-        var oz = - (rows-1)*0.5*spacing;
-        var j, idxP, ix, iz;
-        for(iz=0; iz<rows; iz++){
-          for(ix=0; ix<cols; ix++){
-            idxP = start + iz*cols + ix;
-            var x = cx + ox + ix*spacing;
-            var y = cy;
-            var z = cz + oz + iz*spacing;
-            px[idxP]=restX[idxP]=x; py[idxP]=restY[idxP]=y; pz[idxP]=restZ[idxP]=z;
-            vx[idxP]=vy[idxP]=vz[idxP]=0;
-            pins[idxP]=0;
-            cloudId[idxP]=i;
-            // neighbors in this cloud (4-neighbor lattice)
-            nL[idxP] = (ix>0)? (idxP-1) : -1;
-            nR[idxP] = (ix+1<cols)? (idxP+1) : -1;
-            nU[idxP] = (iz>0)? (idxP-cols) : -1;
-            nD[idxP] = (iz+1<rows)? (idxP+cols) : -1;
+        var oy = - (layers-1)*0.5*spacing; // layers along Y
+        var oz = - (rows-1)*0.5*spacing;   // rows along Z
+        var idxP, x,y,z, ix,iy,iz;
+        for(iy=0; iy<layers; iy++){
+          for(iz=0; iz<rows; iz++){
+            for(ix=0; ix<cols; ix++){
+              idxP = start + iy*(rows*cols) + iz*cols + ix;
+              x = cx + ox + ix*spacing;
+              y = cy + oy + iy*spacing;
+              z = cz + oz + iz*spacing;
+              px[idxP]=restX[idxP]=x; py[idxP]=restY[idxP]=y; pz[idxP]=restZ[idxP]=z;
+              vx[idxP]=vy[idxP]=vz[idxP]=0;
+              pins[idxP]=0;
+              cloudId[idxP]=i;
+            }
           }
         }
       }
+
+      // Build internal edge list (3D structural springs) using +X, +Y, +Z neighbors per cloud
+      var tI=[], tJ=[], tL=[];
+      for(i=0;i<numClouds;i++){
+        var cc = clouds[i]; var colsI=cc.cols|0, rowsI=cc.rows|0, layersI=(cc.layers|0)||1; var startI=cOffsets[i];
+        var slab = rowsI*colsI;
+        for(var ly=0; ly<layersI; ly++){
+          for(var rz=0; rz<rowsI; rz++){
+            for(var cx2=0; cx2<colsI; cx2++){
+              var base = startI + ly*slab + rz*colsI + cx2;
+              // +X neighbor
+              if(cx2+1<colsI){ var jx = base+1; var dx=restX[jx]-restX[base], dy=restY[jx]-restY[base], dz=restZ[jx]-restZ[base]; tI.push(base); tJ.push(jx); tL.push(Math.hypot(dx,dy,dz)); }
+              // +Z neighbor (row)
+              if(rz+1<rowsI){ var jz = base+colsI; var dx2=restX[jz]-restX[base], dy2=restY[jz]-restY[base], dz2=restZ[jz]-restZ[base]; tI.push(base); tJ.push(jz); tL.push(Math.hypot(dx2,dy2,dz2)); }
+              // +Y neighbor (layer)
+              if(ly+1<layersI){ var jy = base+slab; var dx3=restX[jy]-restX[base], dy3=restY[jy]-restY[base], dz3=restZ[jy]-restZ[base]; tI.push(base); tJ.push(jy); tL.push(Math.hypot(dx3,dy3,dz3)); }
+            }
+          }
+        }
+      }
+      eCount = tI.length; eI = new Int32Array(eCount); eJ = new Int32Array(eCount); eL0 = new Float32Array(eCount);
+      for(i=0;i<eCount;i++){ eI[i]=tI[i]|0; eJ[i]=tJ[i]|0; eL0[i]=tL[i]; }
 
       // build render objects per cloud
       for(i=0;i<numClouds;i++){
@@ -341,80 +480,108 @@
       var h = ((ix*73856093) ^ (iy*19349663) ^ (iz*83492791)) & (BUCKETS-1);
       return h;
     }
-    /** Rebuild intrusive lists: head[]=-1; next[i]=head[h]; head[h]=i. */
-    function rebuildHash(){
-      // init heads to -1 (linear loop to avoid any hidden allocs)
-      for(var b=0;b<BUCKETS;b++) head[b] = -1;
-      var inv = 1.0 / cellSize; // slightly faster multiply than divide
-      var i, ix,iy,iz, h;
-      for(i=0;i<N;i++){
-        ix = Math.floor(px[i]*inv);
-        iy = Math.floor(py[i]*inv);
-        iz = Math.floor(pz[i]*inv);
-        cellX[i]=ix; cellY[i]=iy; cellZ[i]=iz;
-        h = hash(ix,iy,iz);
-        next[i] = head[h];
-        head[h] = i;
-      }
-    }
+    // Note: At runtime we use fixed cross-cloud spring pairs (no pre-strain). Spatial hash is used only when building pairs.
 
     // ======================== Forces ========================
-    /** Apply internal Laplacian cohesion per cloud and mild tether to rest. */
+    /** Apply internal structural springs (solid-like). Hooke: F = k * (1 - L0/L) * (xj - xi). */
     function applyInternal(){
-      var i, start, end, cols, rows, kint, nx,ny,nz, selfx,selfy,selfz, cnt;
-      for(var c=0;c<numClouds;c++){
-        start=cOffsets[c]; end=cOffsets[c+1];
-        kint = (c===0? k1 : c===1? k2 : c===2? k3 : k4);
-        for(i=start;i<end;i++){
-          selfx=px[i]; selfy=py[i]; selfz=pz[i];
-          nx=0; ny=0; nz=0; cnt=0;
-          var j = nL[i]; if(j!==-1){ nx+=px[j]; ny+=py[j]; nz+=pz[j]; cnt++; }
-          j = nR[i]; if(j!==-1){ nx+=px[j]; ny+=py[j]; nz+=pz[j]; cnt++; }
-          j = nU[i]; if(j!==-1){ nx+=px[j]; ny+=py[j]; nz+=pz[j]; cnt++; }
-          j = nD[i]; if(j!==-1){ nx+=px[j]; ny+=py[j]; nz+=pz[j]; cnt++; }
-          if(cnt>0){ nx = nx/cnt - selfx; ny = ny/cnt - selfy; nz = nz/cnt - selfz; }
-          // Laplacian force ~ k * (avg4 - self)
-          fx[i] += kint * nx;
-          fy[i] += kint * ny;
-          fz[i] += kint * nz;
-          // Tether to rest to keep sheets from drifting
-          fx[i] += tetherK * (restX[i]-selfx);
-          fy[i] += tetherK * (restY[i]-selfy);
-          fz[i] += tetherK * (restZ[i]-selfz);
-        }
+      var p, i, j, dx,dy,dz, L2, invL, s, cid, kint;
+      for(p=0;p<eCount;p++){
+        i = eI[p]; j = eJ[p]; cid = cloudId[i];
+        kint = (cid===0? k1 : cid===1? k2 : cid===2? k3 : k4);
+        dx = px[j]-px[i]; dy = py[j]-py[i]; dz = pz[j]-pz[i];
+        L2 = dx*dx + dy*dy + dz*dz + 1e-12;
+        invL = 1.0/Math.sqrt(L2);
+        s = kint * (1.0 - eL0[p]*invL);
+        fx[i] += s*dx; fy[i] += s*dy; fz[i] += s*dz;
+        fx[j] -= s*dx; fy[j] -= s*dy; fz[j] -= s*dz;
       }
     }
 
-    /** Apply Gaussian cross-cloud coupling using spatial hash. Equal-and-opposite forces. */
-    function applyCoupling(){
-      var i, j, h, b, off=0, dx,dy,dz, d2, w, f, ix,iy,iz, nix,niy,niz, idxOff;
-      pairCount = 0;
-      // For each particle i, traverse 27 neighbor buckets, visit indices j>i with different cloud
+    // -------- Cross-cloud spring pairs (built once, no pre-strain) --------
+    var pairI = new Int32Array(0); // indices in [0,N)
+    var pairJ = new Int32Array(0);
+    var pairL0 = new Float32Array(0); // rest lengths from initial positions
+    var pairCount = 0;
+
+    /** Build cross-cloud pairs using rest positions and current radius rCouple.
+     * For each particle i and for each other cloud c2, pick the nearest j in c2 within rCouple.
+     * Store unique pairs and their rest lengths so initial state has zero force (no pre-strain).
+     */
+    function rebuildPairs(){
+      var inv = 1.0 / Math.max(0.8, 0.9*rCouple);
+      // Temporary hash on rest positions
+      var headT = new Int32Array(BUCKETS);
+      var nextT = new Int32Array(N);
+      for(var b=0;b<BUCKETS;b++) headT[b] = -1;
+      var i, ix,iy,iz, h;
       for(i=0;i<N;i++){
-        ix = cellX[i]; iy=cellY[i]; iz=cellZ[i];
-        idxOff = 0;
-        while(idxOff < 27*3){
-          nix = ix + neighborOffsets[idxOff++];
-          niy = iy + neighborOffsets[idxOff++];
-          niz = iz + neighborOffsets[idxOff++];
-          h = hash(nix,niy,niz);
-          j = head[h];
-          while(j!==-1){
-            if(j>i && cloudId[j]!==cloudId[i]){
-              dx = px[j]-px[i]; dy = py[j]-py[i]; dz = pz[j]-pz[i];
-              d2 = dx*dx + dy*dy + dz*dz;
-              if(d2 <= r2){
-                // Gaussian weight exp(-d2/r2)
-                w = Math.exp(-d2 / r2);
-                f = kCouple * w;
-                fx[i] += f*dx; fy[i] += f*dy; fz[i] += f*dz;
-                fx[j] -= f*dx; fy[j] -= f*dy; fz[j] -= f*dz;
-                pairCount++;
+        ix = Math.floor(restX[i]*inv);
+        iy = Math.floor(restY[i]*inv);
+        iz = Math.floor(restZ[i]*inv);
+        h = hash(ix,iy,iz);
+        nextT[i] = headT[h];
+        headT[h] = i;
+      }
+      var r2loc = rCouple*rCouple;
+      var pairsI = [];
+      var pairsJ = [];
+      var pairsL0 = [];
+      var seen = new Set();
+      // Enumerate nearest per other-cloud
+      var dx,dy,dz, d2, best, bestD2, j, nix,niy,niz, idxOff, cid, targetCid, rox,roy,roz;
+      for(i=0;i<N;i++){
+        cid = cloudId[i];
+        // integer cell coords for i
+        ix = Math.floor(restX[i]*inv);
+        iy = Math.floor(restY[i]*inv);
+        iz = Math.floor(restZ[i]*inv);
+        for(targetCid=0; targetCid<numClouds; targetCid++) if(targetCid!==cid){
+          best = -1; bestD2 = 1e9;
+          idxOff = 0;
+          while(idxOff < 27*3){
+            nix = ix + neighborOffsets[idxOff++];
+            niy = iy + neighborOffsets[idxOff++];
+            niz = iz + neighborOffsets[idxOff++];
+            h = hash(nix,niy,niz);
+            j = headT[h];
+            while(j!==-1){
+              if(cloudId[j]===targetCid){
+                dx = restX[j]-restX[i]; dy = restY[j]-restY[i]; dz = restZ[j]-restZ[i];
+                d2 = dx*dx + dy*dy + dz*dz;
+                if(d2 <= r2loc && d2 < bestD2){ bestD2=d2; best=j; }
               }
+              j = nextT[j];
             }
-            j = next[j];
+          }
+          if(best!==-1){
+            var a=i, b=best; if(a>b){ var tmp=a; a=b; b=tmp; }
+            var key = a+"-"+b;
+            if(!seen.has(key)){
+              seen.add(key);
+              pairsI.push(a); pairsJ.push(b);
+              var L0 = Math.sqrt(bestD2);
+              pairsL0.push(L0);
+            }
           }
         }
+      }
+      pairCount = pairsI.length;
+      pairI = new Int32Array(pairCount); pairJ = new Int32Array(pairCount); pairL0 = new Float32Array(pairCount);
+      for(i=0;i<pairCount;i++){ pairI[i]=pairsI[i]; pairJ[i]=pairsJ[i]; pairL0[i]=pairsL0[i]; }
+    }
+
+    /** Apply Hooke forces for cross-cloud pairs: F = k * (1 - L0/L) * (xj - xi). Equal-and-opposite. */
+    function applySpringPairs(){
+      var p, i, j, dx,dy,dz, L2, invL, s;
+      for(p=0;p<pairCount;p++){
+        i = pairI[p]; j = pairJ[p];
+        dx = px[j]-px[i]; dy = py[j]-py[i]; dz = pz[j]-pz[i];
+        L2 = dx*dx + dy*dy + dz*dz + 1e-12;
+        invL = 1.0/Math.sqrt(L2);
+        s = kCouple * (1.0 - pairL0[p]*invL);
+        fx[i] += s*dx; fy[i] += s*dy; fz[i] += s*dz;
+        fx[j] -= s*dx; fy[j] -= s*dy; fz[j] -= s*dz;
       }
     }
 
@@ -497,12 +664,20 @@
       return (bestD2 <= 0.36)? best : -1;
     }
     function onMouseDown(e){
+      var handled = false;
       if(e.button===0){
-        grabbing = pickNearestIndex();
-      }else if(e.button===2){
-        var idx = pickNearestIndex(); if(idx>=0){ pins[idx] = pins[idx]^1; if(pins[idx]) setPinnedColor(idx); else clearPinnedColor(idx); }
+        if(e.shiftKey){ waveletFromCursor(); handled=true; }
+        else { grabbing = pickNearestIndex(); handled=true; }
+      } else if(e.button===2){
+        if(e.altKey || e.shiftKey){
+          var idx = pickNearestIndex(); if(idx>=0){ pins[idx] = pins[idx]^1; if(pins[idx]) setPinnedColor(idx); else clearPinnedColor(idx); }
+          handled = true;
+        } else {
+          // allow OrbitControls to handle right-drag orbit
+          handled = false;
+        }
       }
-      e.preventDefault();
+      if(handled){ e.preventDefault(); }
     }
     function onMouseUp(){ grabbing=-1; }
     function onContextMenu(e){ e.preventDefault(); }
@@ -513,11 +688,24 @@
     renderer.domElement.addEventListener('mouseup', onMouseUp);
     renderer.domElement.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('keydown', onKey);
+    // Fallback orbit events
+    if(!hasOrbit){
+      // Use pointer events for robust right-drag orbit
+      renderer.domElement.addEventListener('pointerdown', function(e){
+        if(e.button===2){
+          e.preventDefault();
+          renderer.domElement.setPointerCapture(e.pointerId);
+          startOrbit(e);
+        }
+      });
+      renderer.domElement.addEventListener('pointermove', function(e){ if(orbiting){ moveOrbit(e); } });
+      renderer.domElement.addEventListener('pointerup', function(e){ if(e.button===2){ orbiting=false; renderer.domElement.releasePointerCapture(e.pointerId); } });
+    }
 
     // ======================== Controls & API ========================
     function applyUI(){
       timeScale = +rngTime.value; damping = +rngDamp.value; mouseK = +rngMouseK.value; kCouple = +rngKc.value;
-      var r = +rngR.value; rCouple = r; r2 = r*r; cellSize = Math.max(0.8, 0.9*rCouple);
+      var r = +rngR.value; if(r!==rCouple){ rCouple = r; r2 = r*r; cellSize = Math.max(0.8, 0.9*rCouple); rebuildPairs(); }
       k1=+rngK1.value; k2=+rngK2.value; k3=+rngK3.value; k4=+rngK4.value;
       updatePointSize(+rngPSize.value);
       gridHelper.visible = chkGrid.checked; axesHelper.visible = chkAxes.checked;
@@ -526,11 +714,33 @@
     btnPause.addEventListener('click', function(){ running=!running; btnPause.textContent= running? 'Pause':'Play'; btnPause.classList.toggle('primary', running); if(running){ lastTS=performance.now(); requestAnimationFrame(tick);} });
     btnReset.addEventListener('click', function(){ resetSim(); });
     btnPulse.addEventListener('click', function(){ pulse(); });
-    btnRand.addEventListener('click', function(){ randomImpulse((Math.random()*1e9)|0); });
+  btnRand.addEventListener('click', function(){ randomImpulse((Math.random()*1e9)|0); });
+  btnWave.addEventListener('click', function(){ waveletFromCursor(); });
     rngTime.addEventListener('input', applyUI);
     rngDamp.addEventListener('input', applyUI);
     rngMouseK.addEventListener('input', applyUI);
     rngPSize.addEventListener('input', applyUI);
+    if(selRes){ selRes.addEventListener('change', function(){ rebuildSimulation(selRes.value||'default'); }); }
+    function syncMeshInputs(){
+      // Set number inputs from current clouds
+      var map = [
+        [numACols,numARows,numALay,numASp],
+        [numBCols,numBRows,numBLay,numBSp],
+        [numCCols,numCRows,numCLay,numCSp],
+        [numDCols,numDRows,numDLay,numDSp]
+      ];
+      for(var i=0;i<numClouds;i++){
+        if(!map[i]) continue; var c = clouds[i];
+        map[i][0].value = String(c.cols);
+        map[i][1].value = String(c.rows);
+        map[i][2].value = String((c.layers||1));
+        map[i][3].value = String(c.spacing);
+      }
+    }
+    function onMeshesChanged(){ if(selRes){ selRes.value='custom'; } rebuildSimulation('custom'); }
+    if(btnApplyMeshes){ btnApplyMeshes.addEventListener('click', onMeshesChanged); }
+    // also trigger on number input enter/blur
+    [numACols,numARows,numALay,numASp,numBCols,numBRows,numBLay,numBSp,numCCols,numCRows,numCLay,numCSp,numDCols,numDRows,numDLay,numDSp].forEach(function(el){ if(el){ el.addEventListener('change', onMeshesChanged); el.addEventListener('blur', onMeshesChanged); } });
     rngK1.addEventListener('input', applyUI);
     rngK2.addEventListener('input', applyUI);
     rngK3.addEventListener('input', applyUI);
@@ -565,11 +775,70 @@
 
     function randomImpulse(seed){ if(seed!==undefined) seedRandom(seed); for(var i=0;i<N;i++){ vx[i] += (rand()-0.5)*2.5; vy[i] += (rand()-0.5)*2.5; vz[i] += (rand()-0.5)*2.5; } }
 
+    function wavelet(center, amp, sigma){
+      amp = amp==null ? 3.0 : +amp; sigma = sigma==null ? 1.1 : +sigma;
+      var twoSigma2 = 2*sigma*sigma;
+      for(var i=0;i<N;i++){
+        var dx = px[i]-center.x, dy = py[i]-center.y, dz = pz[i]-center.z;
+        var d2 = dx*dx + dy*dy + dz*dz;
+        var L = Math.sqrt(d2) + 1e-6;
+        var gain = Math.exp(-d2 / twoSigma2);
+        var s = amp * gain / L;
+        vx[i] += dx * s;
+        vy[i] += dy * s;
+        vz[i] += dz * s;
+      }
+    }
+    function waveletFromCursor(){
+      // Intersect ray with a plane through the origin facing the camera
+      raycaster.setFromCamera(mouseNDC, camera);
+      camDir.copy(camera.getWorldDirection(camDir)).multiplyScalar(-1);
+      plane.setFromNormalAndCoplanarPoint(camDir, new THREE.Vector3(0,0,0));
+      if(raycaster.ray.intersectPlane(plane, hit)!==null){ wavelet(hit, 3.2, 1.0); }
+      else { wavelet(new THREE.Vector3(0,0,0), 3.2, 1.0); }
+    }
+
     function setCoupling(k,r){ rngKc.value = String(k); rngR.value = String(r); applyUI(); }
     function setStiffness(a,b,c,d){ rngK1.value=String(a); rngK2.value=String(b); rngK3.value=String(c); rngK4.value=String(d); applyUI(); }
     function pause(flag){ running = (flag===undefined)? !running : !(!flag); btnPause.textContent= running? 'Pause':'Play'; btnPause.classList.toggle('primary', running); if(running){ lastTS=performance.now(); requestAnimationFrame(tick);} }
 
     window.api = { setCoupling:setCoupling, setStiffness:setStiffness, pulse:pulse, randomImpulse:randomImpulse, pause:pause, reset:resetSim, seedRandom:seedRandom };
+
+    // ======================== Legend & rebuild ========================
+    function updateLegend(){
+      if(!keyLegend) return;
+      var html = '';
+      for(var i=0;i<numClouds;i++){
+        var c = clouds[i];
+        var hex = (c.color>>>0).toString(16).padStart(6,'0');
+  html += '<span><span class="swatch" style="background:#'+hex+'"></span> '+
+    'Cloud '+c.name+' ('+c.cols+'×'+c.rows+'×'+((c.layers||1))+' @ '+c.spacing.toFixed(1)+')'+
+                '</span>';
+        if(i!==numClouds-1) html += ' ';
+      }
+      keyLegend.innerHTML = html;
+    }
+    function disposeRenders(){
+      for(var i=0;i<renders.length;i++){
+        var r = renders[i];
+        scene.remove(r.points);
+        r.geom.dispose(); r.mat.dispose();
+      }
+      renders.length = 0;
+    }
+    function rebuildSimulation(preset){
+      disposeRenders();
+      clouds = getPreset(preset||'default');
+      numClouds = clouds.length;
+      cOffsets = new Int32Array(numClouds+1);
+      initArrays();
+      rebuildPairs();
+      resetSim();
+      applyUI();
+      updateLegend();
+      syncMeshInputs();
+      updateGeometries();
+    }
 
     // ======================== Main loop ========================
     function zeroForces(){
@@ -584,9 +853,8 @@
       var steps = (rawDt>1/30)? 2:1; var subDt = dt/steps;
       for(var s=0;s<steps;s++){
         zeroForces();
-        rebuildHash();
         applyInternal();
-        applyCoupling();
+        applySpringPairs();
         applyMouseSpring();
         integrate(subDt);
       }
@@ -598,7 +866,7 @@
       // Diagnostics EMA
       simMS = simMS*(1-ema) + (t1-t0)*ema;
       rendMS = rendMS*(1-ema) + (t2-t1)*ema;
-      hud.textContent = 'ms: sim '+simMS.toFixed(2)+' | rend '+rendMS.toFixed(2)+' | pairs '+pairCount+' | cell '+cellSize.toFixed(2)+' | N '+N;
+      hud.textContent = 'ms: sim '+simMS.toFixed(2)+' | rend '+rendMS.toFixed(2)+' | pairs '+pairCount+' | r '+rCouple.toFixed(2)+' | N '+N;
       if(running) requestAnimationFrame(tick);
     }
 
@@ -611,7 +879,10 @@
     window.addEventListener('resize', onResize, {passive:true});
 
   initArrays();
+  rebuildPairs();
   applyUI();
+  updateLegend();
+  syncMeshInputs();
   onResize();
   // Push initial positions to GPU before first render
   updateGeometries();
