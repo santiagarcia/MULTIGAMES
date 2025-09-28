@@ -1,0 +1,1610 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Linkages — 2D Truss Studio</title>
+  <meta name="description" content="Design 2D trusses with an elegant single-file app. Add nodes, members, supports, and solve statics and realtime dynamics." />
+  <style>
+    :root{
+      --bg:#f6f7fb; --panel:#ffffff; --ink:#0f172a; --muted:#5b6b86; --accent:#7c3aed; --accent-2:#06b6d4; --stroke:#e6e8f0; --ok:#10b981; --warn:#f59e0b; --err:#ef4444;
+      --shadow: 0 10px 30px rgba(17,24,39,0.08);
+    }
+  html,body{ height:100%; min-height:100vh; margin:0; background:linear-gradient(135deg,#f6f7fb,#eef1f8); color:var(--ink); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif }
+  .wrap{ display:grid; grid-template-columns: 68px 1fr 200px; grid-template-rows: 48px minmax(0,1fr); height:100vh }
+  /* Collapsible columns for maximum canvas width */
+  .wrap.panel-collapsed{ grid-template-columns: 68px 1fr 0px }
+  .wrap.tools-collapsed{ grid-template-columns: 0px 1fr 200px }
+  .wrap.tools-collapsed.panel-collapsed{ grid-template-columns: 0px 1fr 0px }
+  .wrap.panel-collapsed aside.panel{ display:none }
+  .wrap.tools-collapsed aside.tools{ display:none }
+  header{ grid-column: 1 / -1; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background:var(--panel); border-bottom:1px solid var(--stroke); box-shadow:var(--shadow) }
+  header .title{ font-weight:700; letter-spacing:.2px; font-size:14px }
+  header .actions{ display:flex; gap:6px }
+  header button{ background:var(--ink); color:white; border:none; border-radius:8px; padding:6px 10px; font-weight:600; font-size:12px; box-shadow:var(--shadow); cursor:pointer }
+    header button.alt{ background:var(--accent); }
+    header button.ghost{ background:transparent; color:var(--ink); border:1px solid var(--stroke) }
+
+  aside.tools{ grid-row: 2; background:var(--panel); border-right:1px solid var(--stroke); padding:8px 6px; display:flex; flex-direction:column; gap:6px; align-items:center }
+  .tool{ width:48px; height:48px; border-radius:12px; border:1px solid var(--stroke); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--muted); background:#fafbff; font-size:16px }
+  .tool.active{ background:linear-gradient(135deg,#ede9fe,#cffafe); color:#2b2555; border-color:#ded6ff; font-weight:700 }
+  .tool span{ font-size:10px; position:absolute; transform:translateY(28px); }
+  /* Small delete overlay for each tool */
+  .tool{ position:relative }
+  .tool .del{ position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%; background:#ffffff; border:1px solid var(--stroke); display:flex; align-items:center; justify-content:center; font-size:12px; color:#6b7280; box-shadow:var(--shadow); cursor:pointer }
+  .tool.active .del{ border-color:#c7b6ff; color:#4f46e5 }
+
+  /* Bottom plot bar for Scope tool */
+  .plotbar{ position:absolute; left:10px; right:10px; bottom:28px; height:160px; background:rgba(255,255,255,0.96); border:1px solid var(--stroke); border-radius:12px; box-shadow:var(--shadow); padding:8px 10px; display:none }
+  .plotbar .row{ display:flex; align-items:center; justify-content:space-between; gap:8px }
+  .plotbar .vals{ font-size:11px; color:#0b1220; display:flex; flex-wrap:wrap; gap:10px }
+  .plotbar .vals .kv{ white-space:nowrap }
+  #plotCanvas{ width:100%; height:120px; display:block }
+
+  #stage{ position:relative; background:transparent; height:100%; min-height:400px; overflow:hidden }
+    canvas{ display:block; width:100%; height:100% }
+  .hud{ position:absolute; bottom:10px; left:10px; background:rgba(255,255,255,0.9); padding:4px 8px; border-radius:8px; font-size:11px; color:#0b1220; border:1px solid var(--stroke); box-shadow:var(--shadow) }
+  .statusbar{ position:absolute; left:0; right:0; bottom:0; padding:8px 12px; color:var(--muted); font-size:11px; pointer-events:none }
+
+    aside.panel{ grid-row: 2; background:var(--panel); border-left:1px solid var(--stroke); padding:10px; overflow:auto }
+    h2{ font-size:12px; color:#1f2937; margin:0 0 8px 0; letter-spacing:.3px; text-transform:uppercase }
+    .group{ border:1px solid var(--stroke); border-radius:12px; padding:10px; margin-bottom:10px; background:#ffffff }
+    .row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap }
+    .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:6px }
+    .grid3{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px }
+    label{ display:flex; flex-direction:column; gap:3px; font-size:11px; color:#374151 }
+    input[type="number"],input[type="text"],select,button{
+      background:#f5f7fb; color:#0f172a; border:1px solid var(--stroke); border-radius:8px; padding:6px 8px; font-size:11px
+    }
+    button.primary{ background:linear-gradient(135deg,#7c3aed,#06b6d4); color:white; border:none; font-weight:700; font-size:12px; padding:6px 10px }
+    .badge{ padding:3px 6px; border-radius:999px; background:#eef2ff; border:1px solid var(--stroke); color:#4f46e5; font-weight:600; font-size:11px }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .hint{ color:#64748b; font-size:11px }
+  </style>
+</head>
+<body>
+  <div class="wrap panel-collapsed">
+    <header>
+  <div class="title">Linkages — 2D Truss Studio</div>
+      <div class="actions">
+  <button id="btnTogglePanel" class="ghost" title="Show/Hide properties panel">Panel</button>
+        <button id="btnPlay" class="ghost">Play</button>
+        <button id="btnStep" class="ghost">Step</button>
+        <button id="btnClear" class="ghost">New</button>
+        <button id="btnDelete" class="ghost">Delete</button>
+        <button id="btnSample" class="primary">Sample</button>
+      </div>
+    </header>
+
+    <aside class="tools">
+      <div class="tool active" data-tool="select" title="Select / drag nodes">🖱️</div>
+      <div class="tool" data-tool="add-node" title="Place node on y=0">⭕</div>
+      <div class="tool" data-tool="add-member" title="Click node → node">➖</div>
+      <div class="tool" data-tool="support" title="Toggle DOF locks">🔒</div>
+      <div class="tool" data-tool="force" title="Set node forces (kN)">⚡</div>
+  <div class="tool" data-tool="target" title="Set/clear IK target for node">🎯</div>
+  <div class="tool" data-tool="motor" title="Put motor on node or pivot (auto-pivot, only ω)">🌀</div>
+      <div class="tool" data-tool="scope" title="Scope: view numeric values and plots">📈</div>
+      <div class="tool" data-tool="drag-rigid" title="Drag with rigid bar lengths">✋</div>
+      <div class="tool" data-tool="pan" title="Pan / orbit">🧭</div>
+    </aside>
+
+    <section id="stage">
+      <canvas id="view"></canvas>
+      <div class="hud"><span id="mode" class="badge">Select</span> · <span id="hud">0 nodes | 0 members</span>
+  <div class="statusbar" id="status">Mode: Click canvas to interact. Pan: hold Space and drag. Zoom: wheel.</div></div>
+      <div id="plotbar" class="plotbar">
+        <div class="row" style="margin-bottom:6px">
+          <div class="badge">Scope</div>
+          <div class="vals" id="plotInfo"></div>
+          <div style="margin-left:auto; display:flex; gap:6px">
+            <button id="btnScopeClear" class="ghost" style="padding:4px 8px">Clear</button>
+          </div>
+        </div>
+        <canvas id="plotCanvas"></canvas>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="group">
+        <h2>Display</h2>
+        <div class="grid">
+          <label>Disp. scale<input id="inpDispScale" type="number" value="100" step="10"></label>
+          <label>Grid (m)<input id="inpGrid" type="number" value="1" step="0.5"></label>
+        </div>
+      </div>
+      <div class="group">
+        <h2>Materials</h2>
+        <div class="grid">
+          <label>E (GPa)<input id="inpE" type="number" value="200" step="1"></label>
+          <label>A (cm²)<input id="inpA" type="number" value="4" step="0.5"></label>
+          <label>Snap (m)<input id="inpSnap" type="number" value="0.1" step="0.05"></label>
+        </div>
+      </div>
+      <div class="group">
+        <h2>Dynamics (Realtime)</h2>
+        <div class="grid">
+          <label>dt (s)<input id="inpDt" type="number" value="0.016" step="0.001"></label>
+          <label>Damping (0–1)<input id="inpDamp" type="number" value="0.02" step="0.01"></label>
+          <label>Gravity Y (m/s²)<input id="inpGy" type="number" value="-9.81" step="0.1"></label>
+          <label>Iterations<input id="inpIter" type="number" value="8" step="1"></label>
+          <label>Substeps<input id="inpSub" type="number" value="4" step="1"></label>
+          <label>Compliance (m/N)<input id="inpComp" type="number" value="0" step="1e-6"></label>
+        </div>
+        <div class="hint" style="margin-top:6px">Press Play to simulate; the animation loops the first motor cycle.</div>
+      </div>
+      <div class="group">
+        <h2>Selection</h2>
+        <div id="props">No selection</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Pure Canvas 2D; no external libs required -->
+
+  <script>
+  'use strict';
+
+  // --- Minimal DOM polyfills for older browsers (ensures toolbar clicks work) ---
+  (function(){
+    if(!Element.prototype.matches){
+      Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
+    }
+    if(!Element.prototype.closest){
+      Element.prototype.closest = function(selector){
+        let el = this;
+        while(el && el.nodeType === 1){
+          if(el.matches && el.matches(selector)) return el;
+          el = el.parentElement || el.parentNode;
+        }
+        return null;
+      };
+    }
+  })();
+
+  // --- Error overlay to surface issues that would disable UI wiring ---
+  function showErrorOverlay(message){
+    let el = document.getElementById('errOverlay');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'errOverlay';
+      el.style.cssText = 'position:fixed;left:10px;top:10px;z-index:9999;background:#2b1a1a;color:#ffdada;padding:8px 10px;border:1px solid #5a2f2f;border-radius:8px;max-width:420px;font:12px/1.4 system-ui,Segoe UI,Roboto,sans-serif;';
+      document.body.appendChild(el);
+    }
+    el.textContent = 'Script error: ' + message;
+  }
+  window.addEventListener('error', (e)=>{
+    if(e && e.message) showErrorOverlay(e.message);
+  });
+  window.addEventListener('unhandledrejection', (e)=>{
+    const msg = (e && e.reason && (e.reason.message || e.reason.toString())) || 'unhandled promise rejection';
+    showErrorOverlay(msg);
+  });
+
+  /* ========================== *
+   *        DATA MODEL (2D)     *
+   * ========================== *
+   * Units:
+   *  - Length: meters
+   *  - Force:  kN
+   *  - E:      GPa
+   *  - Area:   cm^2 (converted to m^2)
+   */
+  const model = {
+  nodes: [],   // {id, x, y, vx, vy, m, fix:[Tx,Ty], load:[Fx,Fy], prev:[x,y], target:[x,y]|null}
+    members: [], // {id, i, j, E(Pa), A(m^2), L0, N:0, Nmax:1}
+    sel: { kind:'none', index:-1 }, // 'node' | 'member' | 'none'
+    nextNodeId:1,
+    nextMemberId:1,
+    idToNodeIndex: new Map(),
+    idToMemberIndex: new Map(),
+    rzWelds: [] // angle lock via distance welds between neighbors: {i,j,L0}
+  };
+
+  /* ========================== *
+   *        VIEW (Canvas 2D)    *
+   * ========================== */
+  const canvas = document.getElementById('view');
+  const ctx = canvas.getContext('2d');
+  const DPR = Math.min(window.devicePixelRatio||1, 2);
+  let viewW = 0, viewH = 0;
+  let zoom = 60; // pixels per meter
+  let panX = 0, panY = 0; // pixels
+  let isPanning = false; let panStart = {x:0,y:0}; let panOrigin = {x:0,y:0};
+  const GRID_SIZE_DEFAULT = 1;
+  let simTime = 0; // seconds
+
+  // Interaction globals
+  let tool = 'select';
+  let pendingMemberStart = -1;
+  let draggingNode = -1;
+  let spaceKeyDown = false;
+  let dragRigidLastWorld = null; // track last mouse world pos for drag-rigid
+
+  function resize(){
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    viewW = w; viewH = h;
+    canvas.width = Math.max(1, Math.floor(w * DPR));
+    canvas.height= Math.max(1, Math.floor(h * DPR));
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    draw();
+    // Keep plots crisp on resize
+    drawPlots();
+  }
+  window.addEventListener('resize', resize, {passive:true});
+
+  // UI refs
+  const toolsDiv = document.querySelector('aside.tools');
+  const wrapEl = document.querySelector('.wrap');
+  const statusEl = document.getElementById('status');
+  const modeBadge = document.getElementById('mode');
+  const hud = document.getElementById('hud');
+  const plotbar = document.getElementById('plotbar');
+  const plotInfo = document.getElementById('plotInfo');
+  const plotCanvas = document.getElementById('plotCanvas');
+  const plotCtx = plotCanvas.getContext('2d');
+  const btnScopeClear = document.getElementById('btnScopeClear');
+  const btnPlay  = document.getElementById('btnPlay');
+  const btnStep  = document.getElementById('btnStep');
+  const btnClear = document.getElementById('btnClear');
+  const btnDelete = document.getElementById('btnDelete');
+  const btnSample     = document.getElementById('btnSample');
+  const btnTogglePanel = document.getElementById('btnTogglePanel');
+  const inpE          = document.getElementById('inpE');
+  const inpA          = document.getElementById('inpA');
+  const inpSnap       = document.getElementById('inpSnap');
+  const inpGrid       = document.getElementById('inpGrid');
+  const inpDispScale  = document.getElementById('inpDispScale');
+  const propsDiv      = document.getElementById('props');
+
+  // Header toggles to maximize canvas width (after refs are initialized)
+  if(btnTogglePanel){
+    btnTogglePanel.addEventListener('click', ()=>{
+      wrapEl.classList.toggle('panel-collapsed');
+      resize();
+    });
+  }
+  // Tools rail is always visible now; removed toggle button
+
+  // Tool switching and status hints
+  function setTool(t){
+    tool = t;
+  modeBadge.textContent = t[0].toUpperCase() + t.slice(1) + ' Tool';
+    toolsDiv.querySelectorAll('.tool').forEach(el=> el.classList.toggle('active', el.dataset.tool===t));
+    if(t==='add-member'){
+      statusEl.textContent = (pendingMemberStart<0) ? 'Add Member: click first node.' : 'Add Member: click second node.';
+    } else if(t==='add-node'){
+      statusEl.textContent = 'Add Node: click anywhere on the canvas.';
+    } else if(t==='select'){
+      statusEl.textContent = 'Select: click a node or a member. Drag to move a node.';
+    } else if(t==='drag-rigid'){
+      statusEl.textContent = 'Drag (rigid): drag a node; bar lengths are preserved (IK each move).';
+    } else if(t==='pan'){
+      statusEl.textContent = 'Pan: drag canvas. Wheel to zoom.';
+    } else if(t==='force'){
+      statusEl.textContent = 'Force: click a node to set Fx,Fy (kN).';
+    } else if(t==='support'){
+      statusEl.textContent = 'Support: click a node to lock Tx/Ty (and optionally Rz).';
+    } else if(t==='target'){
+      statusEl.textContent = 'Target: click a node to set an IK target (X,Y).';
+    } else if(t==='motor'){
+      statusEl.textContent = 'Motor: click a moving node (auto-pivot), or click a grounded node to drive one of its links. Only ω is requested; radius = current distance.';
+    } else if(t==='scope'){
+      statusEl.textContent = 'Scope: click a node or member to track and plot. Values show below.';
+    } else if(t==='delete-select' || t==='delete-add-node'){
+      statusEl.textContent = 'Delete Node/Member: click a node to delete it, or click near a member to delete it.';
+    } else if(t==='delete-add-member'){
+      statusEl.textContent = 'Delete Member: click near a member to delete it.';
+    } else if(t==='delete-support'){
+      statusEl.textContent = 'Clear Support: click a node to unlock Tx/Ty.';
+    } else if(t==='delete-force'){
+      statusEl.textContent = 'Clear Force: click a node to set Fx=Fy=0.';
+    } else if(t==='delete-target'){
+      statusEl.textContent = 'Clear Target: click a node to remove its IK target.';
+    } else if(t==='delete-motor'){
+      statusEl.textContent = 'Clear Motor: click a motorized node to disable its motor.';
+    } else {
+      statusEl.textContent = '';
+    }
+  }
+
+  // Build delete overlays for tools (Ctrl/Cmd gated)
+  function buildToolOverlays(){
+    const mapDelete = new Map([
+      ['select','delete-select'],
+      ['add-node','delete-add-node'],
+      ['add-member','delete-add-member'],
+      ['support','delete-support'],
+      ['force','delete-force'],
+      ['target','delete-target'],
+      ['motor','delete-motor']
+    ]);
+    toolsDiv.querySelectorAll('.tool').forEach(el=>{
+      // Avoid duplicating
+      if(el.querySelector('.del')) return;
+      const del = document.createElement('div');
+      del.className = 'del';
+      del.title = 'Click to enter delete mode for this tool';
+      del.textContent = '🗑️';
+      el.appendChild(del);
+      del.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        const delTool = mapDelete.get(el.dataset.tool||'');
+        if(!delTool) return;
+        setTool(delTool);
+        statusEl.textContent = 'Delete mode: click a node/member to remove.';
+      });
+    });
+  }
+  buildToolOverlays();
+
+  // Wire click on tools rail
+  toolsDiv.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.tool');
+    if(!btn || !toolsDiv.contains(btn)) return;
+    const t = btn.dataset.tool;
+    if(t) setTool(t);
+  });
+
+  // Clickable legend on the plot canvas to toggle series visibility
+  if(plotCanvas){
+    plotCanvas.addEventListener('pointerdown', (e)=>{
+      if(!scope.legendHitboxes.length) return;
+      const rect = plotCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      for(const hb of scope.legendHitboxes){
+        if(mx>=hb.x && mx<=hb.x+hb.w && my>=hb.y && my<=hb.y+hb.h){
+          scope.visible[hb.key] = !scope.visible[hb.key];
+          drawPlots();
+          e.stopPropagation();
+          e.preventDefault();
+          return;
+        }
+      }
+    });
+  }
+
+  
+  function drawGrid(){
+    ctx.save();
+    ctx.clearRect(0,0,viewW,viewH);
+    ctx.translate(viewW/2 + panX, viewH/2 + panY);
+    const grid = parseFloat(inpGrid.value)||GRID_SIZE_DEFAULT; if(grid<=0){ ctx.restore(); return; }
+    const left = (-viewW/2 - panX)/zoom, right = (viewW/2 - panX)/zoom;
+    const top = (viewH/2 - panY)/zoom, bottom = (-viewH/2 - panY)/zoom;
+    const startX = Math.floor(left/grid)*grid, endX = Math.ceil(right/grid)*grid;
+    const startY = Math.floor(bottom/grid)*grid, endY = Math.ceil(top/grid)*grid;
+    ctx.lineWidth = 1; ctx.strokeStyle = '#e6ecf5';
+    for(let x=startX;x<=endX;x+=grid){ const sx=x*zoom; ctx.beginPath(); ctx.moveTo(sx, -top*zoom); ctx.lineTo(sx, -bottom*zoom); ctx.stroke(); }
+    for(let y=startY;y<=endY;y+=grid){ const sy=-y*zoom; ctx.beginPath(); ctx.moveTo(left*zoom, sy); ctx.lineTo(right*zoom, sy); ctx.stroke(); }
+    // axes
+    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-viewW,0); ctx.lineTo(viewW,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,-viewH); ctx.lineTo(0,viewH); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawScene(){
+    ctx.save();
+    ctx.translate(viewW/2 + panX, viewH/2 + panY);
+  // Draw members
+    for(const e of model.members){
+      const ni=model.idToNodeIndex.get(e.i), nj=model.idToNodeIndex.get(e.j); if(ni==null||nj==null) continue;
+      const a=model.nodes[ni], b=model.nodes[nj];
+      let color = '#111827';
+      if(typeof e.N === 'number'){
+        const t = Math.min(1, Math.abs(e.N)/(Math.abs(e.Nmax||1)||1));
+        color = e.N>=0 ? `hsl(0, 70%, ${50+20*t}%)` : `hsl(225, 70%, ${50+20*t}%)`;
+      }
+      ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(a.x*zoom, -a.y*zoom); ctx.lineTo(b.x*zoom, -b.y*zoom); ctx.stroke();
+    }
+    // nodes
+    for(const n of model.nodes){
+      ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.arc(n.x*zoom, -n.y*zoom, 5, 0, Math.PI*2); ctx.fill();
+      if(n.motor && n.motor.enabled){ ctx.strokeStyle='#7c3aed'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(n.x*zoom, -n.y*zoom, 9, 0, Math.PI*2); ctx.stroke(); }
+      // IK target visualization
+      if(n.target){ const sx=n.target[0]*zoom, sy=-n.target[1]*zoom; ctx.strokeStyle='#22c55e'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(sx-6, sy); ctx.lineTo(sx+6, sy); ctx.stroke(); ctx.beginPath(); ctx.moveTo(sx, sy-6); ctx.lineTo(sx, sy+6); ctx.stroke(); }
+      // supports
+      if(n.fix && (n.fix[0]||n.fix[1])){
+        ctx.strokeStyle='#0ea5e9'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.moveTo(n.x*zoom-8, -n.y*zoom+10); ctx.lineTo(n.x*zoom+8, -n.y*zoom+10); ctx.stroke();
+        if(n.fix[0]){ ctx.beginPath(); ctx.moveTo(n.x*zoom-8, -n.y*zoom+12); ctx.lineTo(n.x*zoom-8, -n.y*zoom+6); ctx.stroke(); }
+        if(n.fix[1]){ ctx.beginPath(); ctx.moveTo(n.x*zoom+8, -n.y*zoom+12); ctx.lineTo(n.x*zoom+8, -n.y*zoom+6); ctx.stroke(); }
+      }
+      // Rz lock indicator (small rotated lock)
+      if(n.lockRz){
+        ctx.fillStyle='#0ea5e9';
+        ctx.fillRect(n.x*zoom-3, -n.y*zoom-16, 6, 6);
+      }
+      // loads
+      const Fx=n.load? n.load[0]:0, Fy=n.load? n.load[1]:0; const mag=Math.hypot(Fx,Fy);
+      if(mag>1e-6){ const L=Math.min(100, 10+4*mag); const dirx=Fx/mag, diry=Fy/mag; const x0=n.x*zoom,y0=-n.y*zoom; const x1=x0+dirx*L, y1=y0-diry*L;
+        ctx.strokeStyle='#f59e0b'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+        const ang=Math.atan2(y0-y1,x0-x1); ctx.beginPath(); ctx.moveTo(x1,y1);
+        ctx.lineTo(x1+10*Math.cos(ang+0.3), y1+10*Math.sin(ang+0.3)); ctx.lineTo(x1+10*Math.cos(ang-0.3), y1+10*Math.sin(ang-0.3)); ctx.closePath(); ctx.fillStyle='#f59e0b'; ctx.fill();
+      }
+    }
+    // selection (defensive bounds checks)
+    if(model.sel.kind==='node' && model.sel.index>=0 && model.sel.index < model.nodes.length){
+      const n=model.nodes[model.sel.index]; ctx.strokeStyle='#7c3aed'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(n.x*zoom, -n.y*zoom, 8, 0, Math.PI*2); ctx.stroke();
+    }
+    else if(model.sel.kind==='member' && model.sel.index>=0 && model.sel.index < model.members.length){
+      const e=model.members[model.sel.index]; if(e){ const a=model.nodes[model.idToNodeIndex.get(e.i)], b=model.nodes[model.idToNodeIndex.get(e.j)]; ctx.strokeStyle='#7c3aed'; ctx.lineWidth=4; ctx.setLineDash([6,6]); ctx.beginPath(); ctx.moveTo(a.x*zoom, -a.y*zoom); ctx.lineTo(b.x*zoom, -b.y*zoom); ctx.stroke(); ctx.setLineDash([]); }
+    }
+    // hover highlight (defensive bounds checks)
+    if(hover && hover.kind==='node' && hover.index>=0 && hover.index < model.nodes.length){
+      const n = model.nodes[hover.index]; ctx.strokeStyle='#ef4444'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(n.x*zoom, -n.y*zoom, 10, 0, Math.PI*2); ctx.stroke();
+    } else if(hover && hover.kind==='member' && hover.index>=0 && hover.index < model.members.length){
+      const e = model.members[hover.index]; if(e){ const a=model.nodes[model.idToNodeIndex.get(e.i)], b=model.nodes[model.idToNodeIndex.get(e.j)]; ctx.strokeStyle='#ef4444'; ctx.lineWidth=4; ctx.setLineDash([2,4]); ctx.beginPath(); ctx.moveTo(a.x*zoom, -a.y*zoom); ctx.lineTo(b.x*zoom, -b.y*zoom); ctx.stroke(); ctx.setLineDash([]); }
+    }
+    // While adding a member, highlight the first picked node with a red ring
+    if(tool==='add-member' && pendingMemberStart>=0){
+      const n=model.nodes[pendingMemberStart];
+      ctx.strokeStyle='#ef4444'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(n.x*zoom, -n.y*zoom, 10, 0, Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function draw(){ drawGrid(); drawScene(); }
+
+  /* ========================== *
+   *        SCOPE / PLOTS       *
+   * ========================== */
+  const scope = {
+    mode: 'node', // 'node' | 'member'
+    nodeIndex: -1,
+    memberIndex: -1,
+    t: [],   // seconds
+    x: [], y: [], vx: [], vy: [],
+    theta: [], omega: [], // radians, rad/s
+    maxLen: 1200,
+    visible: { x:true, y:true, vx:true, vy:true, theta:true, omega:true },
+    legendHitboxes: [] // {key,x,y,w,h} in CSS px relative to canvas client rect
+  };
+
+  function clearScope(){
+    scope.t.length=0; scope.x.length=0; scope.y.length=0; scope.vx.length=0; scope.vy.length=0; scope.theta.length=0; scope.omega.length=0;
+    scope.legendHitboxes.length=0;
+    drawPlots();
+  }
+  if(btnScopeClear) btnScopeClear.addEventListener('click', clearScope);
+
+  function setScopeSelection(kind, index){
+    if(kind==='node'){
+      scope.mode='node'; scope.nodeIndex=index; scope.memberIndex=-1; clearScope();
+    } else if(kind==='member'){
+      scope.mode='member'; scope.memberIndex=index; scope.nodeIndex=-1; clearScope();
+    } else {
+      scope.nodeIndex=-1; scope.memberIndex=-1; clearScope();
+    }
+    updateScopeVisibility();
+  }
+
+  function updateScopeVisibility(){
+    if(!plotbar) return;
+    plotbar.style.display = (scope.nodeIndex>=0 || scope.memberIndex>=0) ? 'block' : 'none';
+  }
+
+  function captureScopeSample(dt){
+    const kWin = 4; // samples window for smoothed derivative
+    if(scope.nodeIndex>=0 && scope.nodeIndex < model.nodes.length){
+      const n = model.nodes[scope.nodeIndex];
+      scope.t.push(simTime);
+      scope.x.push(n.x); scope.y.push(n.y);
+      scope.vx.push(n.vx||0); scope.vy.push(n.vy||0);
+      // Angular state relative to motor pivot if available; otherwise NaN
+      if(n.motor && n.motor.enabled && n.motor.pivot!=null && model.idToNodeIndex.has(n.motor.pivot)){
+        const piv = model.nodes[model.idToNodeIndex.get(n.motor.pivot)];
+        const th = Math.atan2(n.y-piv.y, n.x-piv.x);
+        let om = 0;
+        if(scope.theta.length >= kWin){
+          const prev = scope.theta[scope.theta.length - kWin];
+          let d = th - prev; while(d > Math.PI) d -= 2*Math.PI; while(d < -Math.PI) d += 2*Math.PI;
+          om = d / Math.max(1e-6, dt * kWin);
+        } else if(scope.theta.length>0){
+          const prev = scope.theta[scope.theta.length - 1];
+          let d = th - prev; while(d > Math.PI) d -= 2*Math.PI; while(d < -Math.PI) d += 2*Math.PI;
+          om = d / Math.max(1e-6, dt);
+        }
+        scope.theta.push(th);
+        scope.omega.push(om);
+      } else {
+        scope.theta.push(NaN); scope.omega.push(0);
+      }
+    } else if(scope.memberIndex>=0 && scope.memberIndex < model.members.length){
+      const m = model.members[scope.memberIndex];
+      const ia=model.idToNodeIndex.get(m.i), ib=model.idToNodeIndex.get(m.j); if(ia==null||ib==null) return;
+      const a=model.nodes[ia], b=model.nodes[ib];
+      const cx=(a.x+b.x)/2, cy=(a.y+b.y)/2; const cVx=(a.vx+b.vx)/2, cVy=(a.vy+b.vy)/2;
+      const th = Math.atan2(b.y-a.y, b.x-a.x);
+      let om = 0;
+      if(scope.theta.length >= kWin){
+        const prev = scope.theta[scope.theta.length - kWin];
+        let d = th - prev; while(d > Math.PI) d -= 2*Math.PI; while(d < -Math.PI) d += 2*Math.PI;
+        om = d / Math.max(1e-6, dt * kWin);
+      } else if(scope.theta.length>0){
+        const prev = scope.theta[scope.theta.length - 1];
+        let d = th - prev; while(d > Math.PI) d -= 2*Math.PI; while(d < -Math.PI) d += 2*Math.PI;
+        om = d / Math.max(1e-6, dt);
+      }
+      scope.t.push(simTime); scope.x.push(cx); scope.y.push(cy); scope.vx.push(cVx); scope.vy.push(cVy); scope.theta.push(th); scope.omega.push(om);
+    }
+    // Cap buffer lengths
+    const keep = scope.maxLen; const keys=['t','x','y','vx','vy','theta','omega'];
+    for(const k of keys){ const arr=scope[k]; if(arr.length>keep) arr.splice(0, arr.length-keep); }
+  }
+
+  function formatNum(v, digits=3){ if(v==null || !Number.isFinite(v)) return '—'; return v.toFixed(digits); }
+
+  function drawPlots(){
+    if(!plotCanvas || !plotInfo) return;
+    // Early if nothing selected
+  if(scope.nodeIndex<0 && scope.memberIndex<0){ plotInfo.textContent='No selection'; return; }
+    const w = plotCanvas.clientWidth || (plotbar.clientWidth-20); const h = plotCanvas.clientHeight || 120;
+    const needW = Math.max(1, Math.floor(w*DPR)), needH = Math.max(1, Math.floor(h*DPR));
+    if(plotCanvas.width!==needW || plotCanvas.height!==needH){ plotCanvas.width=needW; plotCanvas.height=needH; }
+    plotCtx.setTransform(DPR,0,0,DPR,0,0);
+    plotCtx.clearRect(0,0,w,h);
+    // Info header
+    if(scope.nodeIndex>=0){
+      const n = model.nodes[scope.nodeIndex];
+      plotInfo.innerHTML = `<span class="kv">Node #${n.id}</span>
+        <span class="kv">x=${formatNum(n.x)}</span><span class="kv">y=${formatNum(n.y)}</span>
+        <span class="kv">vx=${formatNum(n.vx)}</span><span class="kv">vy=${formatNum(n.vy)}</span>
+        <span class="kv">θ=${formatNum(scope.theta.at(-1))}</span><span class="kv">ω=${formatNum(scope.omega.at(-1))}</span>`;
+    } else if(scope.memberIndex>=0){
+      const m = model.members[scope.memberIndex];
+      plotInfo.innerHTML = `<span class="kv">Member #${m.id} (${m.i}–${m.j})</span>
+        <span class="kv">cx=${formatNum(scope.x.at(-1))}</span><span class="kv">cy=${formatNum(scope.y.at(-1))}</span>
+        <span class="kv">cvx=${formatNum(scope.vx.at(-1))}</span><span class="kv">cvy=${formatNum(scope.vy.at(-1))}</span>
+        <span class="kv">θ=${formatNum(scope.theta.at(-1))}</span><span class="kv">ω=${formatNum(scope.omega.at(-1))}</span>`;
+    }
+    // Plot area
+    const padding = {l:40,r:8,t:8,b:16}; const vw=w-padding.l-padding.r, vh=h-padding.t-padding.b;
+    plotCtx.save(); plotCtx.translate(padding.l, padding.t);
+    const T=scope.t; const nS=T.length; if(nS<2){ plotCtx.restore(); return; }
+    const t0=T[0], t1=T[nS-1]; const span=Math.max(1e-6, t1-t0);
+    const tx=(t)=> (t-t0)/span*vw;
+    function axis(){ plotCtx.strokeStyle='#e5e7eb'; plotCtx.lineWidth=1; plotCtx.beginPath(); plotCtx.moveTo(0,vh); plotCtx.lineTo(vw,vh); plotCtx.stroke(); }
+    function plotSeries(arr, color){ let min=Infinity, max=-Infinity; for(const v of arr){ if(Number.isFinite(v)){ if(v<min) min=v; if(v>max) max=v; } }
+      if(!isFinite(min)||!isFinite(max)||min===max){ min-=1; max+=1; }
+      const ty=(v)=> vh - (v-min)/(max-min)*vh;
+      plotCtx.strokeStyle=color; plotCtx.lineWidth=1.5; plotCtx.beginPath(); let started=false; for(let i=0;i<nS;i++){ const v=arr[i]; if(!Number.isFinite(v)) continue; const x=tx(T[i]); const y=ty(v); if(!started){ plotCtx.moveTo(x,y); started=true; } else plotCtx.lineTo(x,y); } plotCtx.stroke();
+      // zero line
+      const y0=ty(0); if(y0>=0 && y0<=vh){ plotCtx.setLineDash([3,3]); plotCtx.strokeStyle='#cbd5e1'; plotCtx.beginPath(); plotCtx.moveTo(0,y0); plotCtx.lineTo(vw,y0); plotCtx.stroke(); plotCtx.setLineDash([]); }
+      // labels
+      plotCtx.fillStyle='#64748b'; plotCtx.font='10px system-ui,Segoe UI,Roboto,sans-serif'; plotCtx.fillText(max.toFixed(2), vw+4, 10); plotCtx.fillText(min.toFixed(2), vw+4, vh-2);
+    }
+    function drawLegend(items){
+      if(!items || !items.length) return;
+      scope.legendHitboxes.length = 0;
+      let x=6, y=6; const lineW=16; const rowH=16; const gap=12;
+      plotCtx.font='10px system-ui,Segoe UI,Roboto,sans-serif'; plotCtx.textBaseline='middle';
+      for(const it of items){
+        const vis = !!scope.visible[it.key];
+        const lineColor = vis ? it.color : '#cbd5e1';
+        const textColor = vis ? '#334155' : '#94a3b8';
+        // color sample line
+        plotCtx.strokeStyle=lineColor; plotCtx.lineWidth=3; plotCtx.beginPath(); plotCtx.moveTo(x, y+rowH/2); plotCtx.lineTo(x+lineW, y+rowH/2); plotCtx.stroke();
+        // label
+        plotCtx.fillStyle=textColor; const tx = x+lineW+6; plotCtx.fillText(it.label, tx, y+rowH/2);
+        const tw = plotCtx.measureText(it.label).width;
+        // strike-through for hidden
+        if(!vis){ plotCtx.strokeStyle='#94a3b8'; plotCtx.lineWidth=1; plotCtx.beginPath(); plotCtx.moveTo(tx, y+rowH/2); plotCtx.lineTo(tx+tw, y+rowH/2); plotCtx.stroke(); }
+        // record hitbox in canvas CSS px (account for padding offset later)
+        const hbX = padding.l + x;
+        const hbY = padding.t + y;
+        const hbW = (tx + tw) - x;
+        const hbH = rowH;
+        scope.legendHitboxes.push({key:it.key, x:hbX, y:hbY, w:hbW, h:hbH});
+        // advance cursor, wrap line if needed
+        x = tx + tw + gap;
+        if(x > vw - 140){ x = 6; y += rowH; }
+      }
+    }
+    // Choose series based on selection type
+    const legend = [];
+    if(scope.nodeIndex>=0){
+      const series = [
+        {key:'x',     label:'x (m)',      color:'#0ea5e9', arr:scope.x},
+        {key:'y',     label:'y (m)',      color:'#22c55e', arr:scope.y},
+        {key:'vx',    label:'vx (m/s)',   color:'#06b6d4', arr:scope.vx},
+        {key:'vy',    label:'vy (m/s)',   color:'#10b981', arr:scope.vy},
+        {key:'theta', label:'θ (rad)',    color:'#f59e0b', arr:scope.theta},
+        {key:'omega', label:'ω (rad/s)',  color:'#7c3aed', arr:scope.omega}
+      ];
+      for(const s of series){ if(scope.visible[s.key]) plotSeries(s.arr, s.color); legend.push({key:s.key,label:s.label,color:s.color}); }
+    }
+    if(scope.memberIndex>=0){
+      const series = [
+        {key:'x',     label:'cx (m)',     color:'#0ea5e9', arr:scope.x},
+        {key:'y',     label:'cy (m)',     color:'#22c55e', arr:scope.y},
+        {key:'vx',    label:'cvx (m/s)',  color:'#06b6d4', arr:scope.vx},
+        {key:'vy',    label:'cvy (m/s)',  color:'#10b981', arr:scope.vy},
+        {key:'theta', label:'θ (rad)',    color:'#f59e0b', arr:scope.theta},
+        {key:'omega', label:'ω (rad/s)',  color:'#7c3aed', arr:scope.omega}
+      ];
+      for(const s of series){ if(scope.visible[s.key]) plotSeries(s.arr, s.color); legend.push({key:s.key,label:s.label,color:s.color}); }
+    }
+    axis();
+    drawLegend(legend);
+    plotCtx.restore();
+  }
+
+  // Auto-solve IK and briefly animate after model edits
+  let autoPreviewFrames = 0;
+  let autoPreviewWasPlaying = false;
+  function onModelChanged(){
+    // Any edit pauses the simulation; user must press Play again
+    if(playing){
+      playing = false;
+      btnPlay.textContent = 'Play';
+      statusEl.textContent = 'Model changed; simulation paused. Press Play to animate.';
+    }
+    // Reset previous positions to avoid spurious velocities on resume
+    for(const n of model.nodes){ n.prev = [n.x, n.y]; }
+    // Sanitize selection/hover if indices are stale
+    if(model.sel.kind==='node' && (model.sel.index<0 || model.sel.index>=model.nodes.length)) model.sel={kind:'none', index:-1};
+    if(model.sel.kind==='member' && (model.sel.index<0 || model.sel.index>=model.members.length)) model.sel={kind:'none', index:-1};
+    if(hover.kind==='node' && (hover.index<0 || hover.index>=model.nodes.length)) hover={kind:'none', index:-1};
+    if(hover.kind==='member' && (hover.index<0 || hover.index>=model.members.length)) hover={kind:'none', index:-1};
+    // No automatic animation; only redraw
+    draw();
+  }
+
+  /* ========================== *
+   *       MODEL ACTIONS        *
+   * ========================== */
+
+  function addNodeAt2D(x,y){
+    const n = {
+      id: model.nextNodeId++,
+      x, y,
+      vx:0, vy:0,
+      m: 1.0,
+      fix: [false,false],
+      lockRz: false,
+      load: [0,0],
+      prev: [x,y],
+      target: null,
+      motor: { enabled:false, pivot:null, omega:0, radius:null, theta0:0, t0:0 }
+    };
+    model.nodes.push(n);
+    rebuildLookups();
+    draw();
+    updateHUD();
+    onModelChanged();
+    return n.id;
+  }
+
+  function addMemberBetween(iId, jId){
+    if(iId === jId) return null;
+    const ni = model.idToNodeIndex.get(iId);
+    const nj = model.idToNodeIndex.get(jId);
+    if(ni == null || nj == null) return null;
+    const a = model.nodes[ni], b = model.nodes[nj];
+    const L0 = Math.hypot(b.x-a.x, b.y-a.y);
+    const E = (parseFloat(inpE.value)||200) * 1e9;  // GPa->Pa
+    const A = (parseFloat(inpA.value)||4)   * 1e-4; // cm^2->m^2
+
+    const e = { id: model.nextMemberId++, i:iId, j:jId, E, A, L0, N:0, Nmax:1 };
+    model.members.push(e);
+    rebuildLookups();
+    draw();
+    updateHUD();
+    onModelChanged();
+    return e.id;
+  }
+
+  function deleteSelection(){
+    if(model.sel.kind === 'node' && model.sel.index >= 0){
+      const id = model.nodes[model.sel.index].id;
+      // remove members touching this node
+      model.members = model.members.filter(m=> m.i!==id && m.j!==id);
+      // remove node
+      model.nodes.splice(model.sel.index, 1);
+      model.sel = {kind:'none', index:-1}; hover = {kind:'none', index:-1};
+      rebuildLookups();
+      draw();
+      updateHUD();
+      onModelChanged();
+      renderProps();
+    } else if(model.sel.kind === 'member' && model.sel.index >= 0){
+      model.members.splice(model.sel.index, 1);
+      model.sel = {kind:'none', index:-1}; hover = {kind:'none', index:-1};
+      rebuildLookups();
+      draw();
+      updateHUD();
+      onModelChanged();
+      renderProps();
+    }
+  }
+
+  /* ========================== *
+   *     STATICS SOLVER (2D)    *
+   * ========================== */
+  function solveStatics(){
+    const N = model.nodes.length; if(N===0){ statusEl.textContent='No nodes. Add nodes first.'; return null; }
+    if(model.members.length===0){ statusEl.textContent='No members. Add members between nodes.'; return null; }
+    const ndof=2*N;
+    const K = new Array(ndof); for(let i=0;i<ndof;i++) K[i] = new Float64Array(ndof);
+    const F = new Float64Array(ndof);
+    const idToIdx = new Map(); model.nodes.forEach((n,idx)=>idToIdx.set(n.id, idx));
+    // forces
+    for(let i=0;i<N;i++){ const n=model.nodes[i]; F[2*i+0]+=n.load[0]||0; F[2*i+1]+=n.load[1]||0; }
+    // assembly
+    for(const e of model.members){
+      const i=idToIdx.get(e.i), j=idToIdx.get(e.j); if(i==null||j==null) continue;
+      const ai=model.nodes[i], aj=model.nodes[j]; const dx=aj.x-ai.x, dy=aj.y-ai.y; const L=Math.hypot(dx,dy); if(L<1e-9) continue;
+      const l=dx/L, m=dy/L; const kEA=(e.E*e.A)/1000.0; const k=kEA/L;
+      const ke=[ [ l*l, l*m, -l*l, -l*m ], [ l*m, m*m, -l*m, -m*m ], [ -l*l, -l*m, l*l, l*m ], [ -l*m, -m*m, l*m, m*m ] ];
+      const map=[2*i,2*i+1,2*j,2*j+1]; for(let a=0;a<4;a++){ const Ka=K[map[a]], kea=ke[a]; for(let b=0;b<4;b++) Ka[map[b]] += k*kea[b]; }
+    }
+    // partition
+  const free=[], fixed=[]; for(let i=0;i<N;i++){ const f=model.nodes[i].fix; for(let d=0;d<2;d++){ const dof=2*i+d; if(f[d]) fixed.push(dof); else free.push(dof); } }
+  if(free.length===0){ statusEl.textContent='All DOFs fixed. Unlock at least one DOF (Tx/Ty).'; throw new Error('All DOFs fixed. Unlock at least one.'); }
+    const Kff=makeSubMatrix(K, free, free), Kcf=makeSubMatrix(K, fixed, free), Ff=subVector(F, free);
+  const uf=solveDense(Kff, Ff); const u=new Float64Array(ndof); for(let i=0;i<free.length;i++) u[free[i]]=uf[i];
+    const reactions = mulMatVec(Kcf, uf);
+    // element axial forces
+    const elem=[]; let Nmax=1e-6; for(const e of model.members){ const i=idToIdx.get(e.i), j=idToIdx.get(e.j); if(i==null||j==null){ elem.push({id:e.id,N:0}); continue; }
+      const ai=model.nodes[i], aj=model.nodes[j]; const dx=aj.x-ai.x, dy=aj.y-ai.y; const L=Math.hypot(dx,dy); if(L<1e-9){ elem.push({id:e.id,N:0}); continue; }
+      const l=dx/L, m=dy/L; const axial=( (u[2*j]-u[2*i])*l + (u[2*j+1]-u[2*i+1])*m ); const Nax=((e.E*e.A)/1000.0)/L * axial; elem.push({id:e.id,N:Nax}); Nmax=Math.max(Nmax, Math.abs(Nax)); }
+    for(const e of model.members){ const em=elem.find(x=>x.id===e.id); e.N=em?em.N:0; e.Nmax=Nmax; }
+    return { u, free, fixed, reactions, elem };
+  }
+
+  // Dense helpers (fast enough for a few hundred nodes)
+  function makeSubMatrix(M, rows, cols){
+    const A = new Array(rows.length);
+    for(let i=0;i<rows.length;i++){
+      const r = new Float64Array(cols.length);
+      const Mi = M[rows[i]];
+      for(let j=0;j<cols.length;j++) r[j] = Mi[cols[j]];
+      A[i]=r;
+    }
+    return A;
+  }
+  function subVector(v, idx){
+    const out = new Float64Array(idx.length);
+    for(let i=0;i<idx.length;i++) out[i] = v[idx[i]];
+    return out;
+  }
+  function mulMatVec(M, v){
+    const r = M.length, c = v.length;
+    const out = new Float64Array(r);
+    for(let i=0;i<r;i++){
+      let s=0; const Mi = M[i];
+      for(let j=0;j<c;j++) s += Mi[j]*v[j];
+      out[i]=s;
+    }
+    return out;
+  }
+  function solveDense(A, b){
+    // Gaussian elimination with partial pivoting (in-place on augmented matrix)
+    const n = A.length;
+    const aug = new Array(n);
+    for(let i=0;i<n;i++){
+      const row = new Float64Array(n+1);
+      row.set(A[i], 0); row[n] = b[i];
+      aug[i] = row;
+    }
+    for(let k=0;k<n;k++){
+      // pivot
+      let piv=k, max=Math.abs(aug[k][k]);
+      for(let i=k+1;i<n;i++){
+        const v=Math.abs(aug[i][k]); if(v>max){max=v;piv=i;}
+      }
+      if(max < 1e-14) throw new Error('Singular matrix (mechanism or missing supports).');
+      if(piv!==k){ const tmp=aug[k]; aug[k]=aug[piv]; aug[piv]=tmp; }
+      // normalize row k
+      const p = aug[k][k];
+      for(let j=k;j<=n;j++) aug[k][j] /= p;
+      // eliminate others
+      for(let i=0;i<n;i++){
+        if(i===k) continue;
+        const f = aug[i][k];
+        if(Math.abs(f)<1e-18) continue;
+        for(let j=k;j<=n;j++) aug[i][j] -= f*aug[k][j];
+      }
+    }
+    const x = new Float64Array(n);
+    for(let i=0;i<n;i++) x[i]=aug[i][n];
+    return x;
+  }
+
+  /* ========================== *
+   *    VISUALIZE SOLUTION      *
+   * ========================== */
+
+  function visualizeSolution(res){
+    // displacement overlay
+    draw();
+    const scale = parseFloat(inpDispScale.value)||100;
+    ctx.save(); ctx.translate(viewW/2 + panX, viewH/2 + panY); ctx.lineWidth=2; ctx.strokeStyle='#06b6d4'; ctx.setLineDash([4,3]);
+    for(const e of model.members){ const ni=model.idToNodeIndex.get(e.i), nj=model.idToNodeIndex.get(e.j); const a=model.nodes[ni], b=model.nodes[nj];
+      const ax=(a.x + res.u[2*ni+0]*scale)*zoom, ay=-(a.y + res.u[2*ni+1]*scale)*zoom;
+      const bx=(b.x + res.u[2*nj+0]*scale)*zoom, by=-(b.y + res.u[2*nj+1]*scale)*zoom;
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  /* ========================== *
+   *       INTERACTION          *
+   * ========================== */
+
+  // Helpers that were referenced but missing after prior edits
+  function worldToScreen(x,y){ return { x: viewW/2 + panX + x*zoom, y: viewH/2 + panY - y*zoom }; }
+  function screenToWorld(sx,sy){ return { x: (sx - (viewW/2 + panX))/zoom, y: - (sy - (viewH/2 + panY))/zoom }; }
+  function snapVal(v){ const s=parseFloat(inpSnap.value)||0; if(s<=0) return v; return Math.round(v/s)*s; }
+  function rebuildLookups(){
+    model.idToNodeIndex.clear();
+    model.idToMemberIndex.clear();
+    for(let i=0;i<model.nodes.length;i++) model.idToNodeIndex.set(model.nodes[i].id, i);
+    for(let i=0;i<model.members.length;i++) model.idToMemberIndex.set(model.members[i].id, i);
+  }
+  function getNeighborIds(nodeId){
+    const out=[]; for(const e of model.members){ if(e.i===nodeId) out.push(e.j); else if(e.j===nodeId) out.push(e.i); } return out;
+  }
+  function rebuildRzWelds(){
+    const weldMap = new Map(); // key "i-j" sorted
+    for(const n of model.nodes){
+      if(!n.lockRz) continue;
+      const nbrs = getNeighborIds(n.id);
+      if(nbrs.length < 2) continue; // need at least two bars
+      // Use first neighbor as reference; weld each other neighbor to it to keep relative angle
+      const refId = nbrs[0];
+      const refIdx = model.idToNodeIndex.get(refId);
+      if(refIdx==null) continue;
+      const ref = model.nodes[refIdx];
+      for(let k=1;k<nbrs.length;k++){
+        const otherId = nbrs[k];
+        const otherIdx = model.idToNodeIndex.get(otherId); if(otherIdx==null) continue;
+        const other = model.nodes[otherIdx];
+        const L0 = Math.hypot(other.x - ref.x, other.y - ref.y);
+        const a = Math.min(refId, otherId), b = Math.max(refId, otherId);
+        const key = a+"-"+b;
+        if(!weldMap.has(key)) weldMap.set(key, {i:a, j:b, L0});
+      }
+    }
+    model.rzWelds = Array.from(weldMap.values());
+  }
+  function updateHUD(){ hud.textContent = `${model.nodes.length} nodes | ${model.members.length} members`; }
+
+  function pickNode(ev){
+    const rect = canvas.getBoundingClientRect(); const mx=ev.clientX-rect.left, my=ev.clientY-rect.top; const R=14;
+    let best=-1, bestD=1e9; for(let i=0;i<model.nodes.length;i++){ const s=worldToScreen(model.nodes[i].x, model.nodes[i].y); const d=Math.hypot(s.x-mx, s.y-my); if(d<R && d<bestD){ best=i; bestD=d; } }
+    return best;
+  }
+
+  function pickMember(ev, tolerance=12){
+    let best=-1, bestD=tolerance; const rect=canvas.getBoundingClientRect(); const mx=ev.clientX-rect.left, my=ev.clientY-rect.top;
+    for(let i=0;i<model.members.length;i++){
+      const m=model.members[i]; const a=model.nodes[model.idToNodeIndex.get(m.i)]; const b=model.nodes[model.idToNodeIndex.get(m.j)];
+      const sa=worldToScreen(a.x,a.y), sb=worldToScreen(b.x,b.y);
+      const d=pointSegDist(mx,my, sa.x,sa.y, sb.x,sb.y);
+      if(d<bestD){ best=i; bestD=d; }
+    }
+    return best;
+  }
+
+  // pointer logic (2D)
+  let hover = { kind:'none', index:-1 };
+  canvas.addEventListener('pointerdown', (e)=>{
+    if(tool==='pan' || spaceKeyDown || e.button===1){ isPanning=true; panStart={x:e.clientX,y:e.clientY}; panOrigin={x:panX,y:panY}; return; }
+    const nodeIdx = pickNode(e);
+    if(tool==='scope'){
+      if(nodeIdx>=0){
+        model.sel={kind:'node', index:nodeIdx};
+        setScopeSelection('node', nodeIdx);
+      } else {
+        const mi = pickMember(e);
+        if(mi>=0){
+          model.sel={kind:'member', index:mi};
+          setScopeSelection('member', mi);
+        } else {
+          model.sel={kind:'none', index:-1};
+          setScopeSelection('none', -1);
+        }
+      }
+      draw(); renderProps();
+      return;
+    }
+    if(tool==='select'){
+      if(nodeIdx>=0){ model.sel={kind:'node', index:nodeIdx}; draggingNode=nodeIdx; } else {
+        // check members proximity (larger tolerance)
+        const mi = pickMember(e);
+        model.sel = mi>=0 ? {kind:'member', index:mi} : {kind:'none', index:-1}; draggingNode=-1;
+      }
+      draw(); renderProps();
+    } else if(tool==='drag-rigid'){
+      if(nodeIdx>=0){ model.sel={kind:'node', index:nodeIdx}; draggingNode=nodeIdx; draw(); renderProps(); const rect=canvas.getBoundingClientRect(); const w=screenToWorld(e.clientX-rect.left, e.clientY-rect.top); dragRigidLastWorld = w; }
+    } else if(tool==='delete-select' || tool==='delete-add-node'){
+      if(nodeIdx>=0){ model.sel={kind:'node', index:nodeIdx}; deleteSelection(); }
+      else { const mi = pickMember(e); if(mi>=0){ model.sel={kind:'member', index:mi}; deleteSelection(); } }
+      draw();
+    } else if(tool==='delete-add-member'){
+      const mi = pickMember(e); if(mi>=0){ model.sel={kind:'member', index:mi}; deleteSelection(); }
+      draw();
+    } else if(tool==='delete-support'){
+      if(nodeIdx>=0){ const n=model.nodes[nodeIdx]; n.fix=[false,false]; statusEl.textContent='Support cleared on node '+n.id; draw(); renderProps(); onModelChanged(); }
+    } else if(tool==='delete-force'){
+      if(nodeIdx>=0){ const n=model.nodes[nodeIdx]; n.load=[0,0]; statusEl.textContent='Force cleared on node '+n.id; draw(); renderProps(); onModelChanged(); }
+    } else if(tool==='delete-target'){
+      if(nodeIdx>=0){ const n=model.nodes[nodeIdx]; n.target=null; statusEl.textContent='Target cleared on node '+n.id; draw(); renderProps(); onModelChanged(); }
+    } else if(tool==='delete-motor'){
+      if(nodeIdx>=0){ const n=model.nodes[nodeIdx]; if(n.motor && n.motor.enabled){ n.motor.enabled=false; n.motor.pivot=null; statusEl.textContent='Motor disabled on node '+n.id; draw(); renderProps(); onModelChanged(); } }
+    } else if(tool==='add-node'){
+      const rect=canvas.getBoundingClientRect(); const w=screenToWorld(e.clientX-rect.left, e.clientY-rect.top);
+      addNodeAt2D(snapVal(w.x), snapVal(w.y)); draw(); renderProps();
+    } else if(tool==='add-member'){
+      if(nodeIdx>=0){ if(pendingMemberStart<0){ pendingMemberStart=nodeIdx; statusEl.textContent='Add Member: click second node.'; }
+        else { const startId=model.nodes[pendingMemberStart].id, endId=model.nodes[nodeIdx].id; if(startId!==endId) addMemberBetween(startId,endId); pendingMemberStart=-1; statusEl.textContent='Member created.'; draw(); } }
+    } else if(tool==='force'){
+      if(nodeIdx>=0){ const n=model.nodes[nodeIdx]; const cur=`${n.load[0]},${n.load[1]}`; const txt=prompt('Force vector Fx,Fy in kN', cur);
+        if(txt){ const v=txt.split(',').map(Number); if(v.length===2 && v.every(Number.isFinite)){ n.load[0]=v[0]; n.load[1]=v[1]; model.sel={kind:'node', index:nodeIdx}; draw(); renderProps(); onModelChanged(); } } }
+    } else if(tool==='support'){
+      if(nodeIdx>=0){ const n=model.nodes[nodeIdx]; const cur=`${n.fix[0]?1:0}${n.fix[1]?1:0}${n.lockRz?1:0}`; const txt=prompt('Lock Tx Ty Rz as 0/1 (e.g., 110 locks Tx & Ty).', cur);
+        if(txt){
+          if(/^[01]{3}$/.test(txt)){ n.fix[0]=txt[0]==='1'; n.fix[1]=txt[1]==='1'; n.lockRz = txt[2]==='1'; model.sel={kind:'node', index:nodeIdx}; draw(); renderProps(); onModelChanged(); }
+          else if(/^[01]{2}$/.test(txt)){ n.fix[0]=txt[0]==='1'; n.fix[1]=txt[1]==='1'; model.sel={kind:'node', index:nodeIdx}; draw(); renderProps(); onModelChanged(); }
+          // Initialize anchors and clamp
+          if(!n._anchor) n._anchor=[n.x,n.y];
+          if(n.fix[0]){ n.x = n._anchor[0]; n.vx=0; if(n.prev) n.prev[0]=n.x; }
+          if(n.fix[1]){ n.y = n._anchor[1]; n.vy=0; if(n.prev) n.prev[1]=n.y; }
+          rebuildRzWelds();
+        }
+      }
+    } else if(tool==='target'){
+      if(nodeIdx>=0){ const n=model.nodes[nodeIdx];
+        if(n.target){ n.target=null; statusEl.textContent='Target cleared for node '+n.id; draw(); renderProps(); onModelChanged(); }
+        else { const def=`${(n.x).toFixed(3)},${(n.y).toFixed(3)}`; const txt=prompt('Target X,Y (m) for IK', def); if(txt){ const v=txt.split(',').map(Number); if(v.length===2 && v.every(Number.isFinite)){ n.target=[v[0], v[1]]; statusEl.textContent='Target set for node '+n.id; draw(); renderProps(); onModelChanged(); } } }
+      }
+    } else if(tool==='motor'){
+      if(nodeIdx>=0){
+        const clicked = model.nodes[nodeIdx];
+        // If clicking a grounded node, treat it as the pivot and drive an adjacent link's other node
+        const isGround = !!(clicked.fix && clicked.fix[0] && clicked.fix[1]);
+        // Collect neighbors (bars touching this node)
+        const neighborIds = [];
+        for(const e2 of model.members){ if(e2.i===clicked.id) neighborIds.push(e2.j); else if(e2.j===clicked.id) neighborIds.push(e2.i); }
+        if(neighborIds.length===0){ statusEl.textContent='This node has no connected bars. Add a member first.'; return; }
+
+        if(isGround){
+          // Choose a neighbor to drive: prefer one that is not fully fixed
+          let targetNode = null;
+          for(const nid of neighborIds){ const idx=model.idToNodeIndex.get(nid); if(idx==null) continue; const nn=model.nodes[idx]; if(!(nn.fix && nn.fix[0] && nn.fix[1])){ targetNode = nn; break; } }
+          if(!targetNode){ const idx=model.idToNodeIndex.get(neighborIds[0]); if(idx!=null) targetNode = model.nodes[idx]; }
+          if(!targetNode){ statusEl.textContent='Could not choose a link to drive from this pivot.'; return; }
+          if(targetNode.lockRz){ statusEl.textContent='Target node has Lock Rz; cannot add motor.'; return; }
+          if(!targetNode.motor) targetNode.motor = {enabled:false,pivot:null,omega:0,radius:null,theta0:0,t0:0};
+          const omegaDef = ((targetNode.motor && targetNode.motor.omega)||0) * 180/Math.PI;
+          const omegaTxt = prompt(`Angular speed ω (deg/s) for link ${clicked.id}–${targetNode.id} (positive=CCW)`, omegaDef.toFixed(2));
+          if(omegaTxt===null){ statusEl.textContent='Motor: canceled.'; return; }
+          let omegaDeg = parseFloat(omegaTxt); if(!Number.isFinite(omegaDeg)) omegaDeg = 0;
+          const rCur = Math.hypot(targetNode.x-clicked.x, targetNode.y-clicked.y);
+          targetNode.motor.enabled = true;
+          targetNode.motor.pivot = clicked.id;
+          targetNode.motor.omega = omegaDeg * Math.PI/180;
+          targetNode.motor.radius = rCur;
+          targetNode.motor.theta0 = Math.atan2(targetNode.y-clicked.y, targetNode.x-clicked.x);
+          targetNode.motor.t0 = simTime;
+          statusEl.textContent = `Motor set: link ${clicked.id}–${targetNode.id} (pivot at ${clicked.id}) with r=${rCur.toFixed(3)} m, ω=${omegaDeg.toFixed(2)} deg/s`;
+          draw(); renderProps(); onModelChanged();
+          return;
+        }
+
+        // Otherwise: motorize the clicked (moving) node, auto-selecting a pivot among neighbors (prefer grounded)
+        // Toggle off if already motorized on this node
+        if(clicked.motor && clicked.motor.enabled){
+          clicked.motor.enabled=false; clicked.motor.pivot=null; statusEl.textContent='Motor disabled on node '+clicked.id; draw(); renderProps(); onModelChanged(); return;
+        }
+        if(clicked.lockRz){ statusEl.textContent='Node is Lock Rz; cannot add motor.'; return; }
+        let pivot = null;
+        for(const nid of neighborIds){ const idx=model.idToNodeIndex.get(nid); if(idx==null) continue; const nn=model.nodes[idx]; if(nn.fix && nn.fix[0] && nn.fix[1]){ pivot=nn; break; } }
+        if(!pivot){ const idx=model.idToNodeIndex.get(neighborIds[0]); if(idx!=null) pivot=model.nodes[idx]; }
+        if(!pivot){ statusEl.textContent='Could not resolve a pivot for this motor.'; return; }
+        if(!clicked.motor) clicked.motor = {enabled:false,pivot:null,omega:0,radius:null,theta0:0,t0:0};
+        const omegaDef = ((clicked.motor && clicked.motor.omega)||0) * 180/Math.PI;
+        const omegaTxt = prompt('Angular speed ω (deg/s). Positive = CCW.', omegaDef.toFixed(2));
+        if(omegaTxt===null){ statusEl.textContent='Motor: canceled.'; return; }
+        let omegaDeg = parseFloat(omegaTxt); if(!Number.isFinite(omegaDeg)) omegaDeg = 0;
+        const rCur = Math.hypot(clicked.x-pivot.x, clicked.y-pivot.y);
+        clicked.motor.enabled = true;
+        clicked.motor.pivot = pivot.id;
+        clicked.motor.omega = omegaDeg * Math.PI/180;
+        clicked.motor.radius = rCur;
+        clicked.motor.theta0 = Math.atan2(clicked.y-pivot.y, clicked.x-pivot.x);
+        clicked.motor.t0 = simTime;
+        statusEl.textContent = `Motor set: node ${clicked.id} about pivot ${pivot.id} (r=${clicked.motor.radius.toFixed(3)} m, ω=${omegaDeg.toFixed(2)} deg/s)`;
+        draw(); renderProps(); onModelChanged();
+      }
+    }
+  });
+  canvas.addEventListener('pointermove', (e)=>{
+    if(isPanning){ panX = panOrigin.x + (e.clientX - panStart.x); panY = panOrigin.y + (e.clientY - panStart.y); draw(); return; }
+    if((tool==='select' || tool==='drag-rigid') && draggingNode>=0){
+      const rect=canvas.getBoundingClientRect(); const w=screenToWorld(e.clientX-rect.left, e.clientY-rect.top);
+      const n=model.nodes[draggingNode];
+      // Desired new position: absolute for select tool, directional delta for drag-rigid
+      let nx, ny;
+      if(tool==='drag-rigid'){
+        if(!dragRigidLastWorld) dragRigidLastWorld = w;
+        let dx = w.x - dragRigidLastWorld.x, dy = w.y - dragRigidLastWorld.y;
+        const maxStep = 0.2; const mag=Math.hypot(dx,dy); if(mag>maxStep && mag>0){ const s=maxStep/mag; dx*=s; dy*=s; }
+        nx = n.x + dx; ny = n.y + dy;
+      } else {
+        nx = snapVal(w.x); ny = snapVal(w.y);
+      }
+      // Backup all positions in case IK drives to invalid pose
+      let backup=null;
+      if(tool==='drag-rigid'){
+        backup = model.nodes.map(nd=>({x:nd.x, y:nd.y, prev: nd.prev ? [nd.prev[0], nd.prev[1]] : [nd.x, nd.y]}));
+      }
+      // Start from desired point, then project to closest feasible pose via a few IK iterations
+      const oldX=n.x, oldY=n.y;
+      if(!n.fix[0]) n.x = nx; // honor Tx lock
+      if(!n.fix[1]) n.y = ny; // honor Ty lock
+      if(tool==='drag-rigid'){
+        dragRigidLastWorld = w;
+        const hasConstraints = model.members.length>0 || model.rzWelds.length>0 || model.nodes.some(nn=>nn.target);
+        if(!hasConstraints){
+          // No constraints to satisfy; treat as simple drag
+          n.prev=[n.x,n.y]; draw(); renderProps(); return;
+        }
+        // Run a small number of IK iterations to pull the whole mechanism to feasibility
+        try{ solveIK(); }catch{}
+        // If still badly violating any member length, revert partially toward feasible by averaging
+        const maxLenErr = (()=>{ let me=0; for(const e of model.members){ const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue; const A=model.nodes[ia], B=model.nodes[ib]; me=Math.max(me, Math.abs(Math.hypot(B.x-A.x,B.y-A.y)-e.L0)); } return me; })();
+        if(maxLenErr>1e-3){ // if infeasible, ease back toward last feasible pos
+          n.x = 0.5*n.x + 0.5*oldX;
+          n.y = 0.5*n.y + 0.5*oldY;
+          try{ solveIK(); }catch{}
+        }
+        // Validate finite & bounded positions; if invalid or out-of-bounds, restore backup
+        let valid = true;
+        for(const nd of model.nodes){ if(!Number.isFinite(nd.x) || !Number.isFinite(nd.y)){ valid=false; break; } }
+        // Bounds based on pre-drag layout size
+        let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+        for(const b of backup){ if(b.x<minX)minX=b.x; if(b.x>maxX)maxX=b.x; if(b.y<minY)minY=b.y; if(b.y>maxY)maxY=b.y; }
+        const cx=(minX+maxX)/2, cy=(minY+maxY)/2; const spanX=Math.max(1e-3, maxX-minX), spanY=Math.max(1e-3, maxY-minY);
+        const allowX = Math.max(100, 10*spanX), allowY = Math.max(100, 10*spanY);
+        if(valid){
+          for(const nd of model.nodes){ if(Math.abs(nd.x - cx) > allowX || Math.abs(nd.y - cy) > allowY){ valid=false; break; } }
+        }
+        // If still infeasible after second attempt, also treat as invalid
+        const maxLenErr2 = (()=>{ let me=0; for(const e of model.members){ const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue; const A=model.nodes[ia], B=model.nodes[ib]; me=Math.max(me, Math.abs(Math.hypot(B.x-A.x,B.y-A.y)-e.L0)); } return me; })();
+        if(maxLenErr2>1e-2) valid=false;
+        if(!valid && backup){
+          for(let i=0;i<model.nodes.length;i++){ model.nodes[i].x=backup[i].x; model.nodes[i].y=backup[i].y; model.nodes[i].prev=[backup[i].prev[0], backup[i].prev[1]]; }
+          statusEl.textContent = 'Drag cancelled: pose was unstable or out of bounds.';
+        }
+      }
+      n.prev=[n.x,n.y]; draw(); renderProps();
+    }
+    // Hover feedback when not dragging
+    if(!isPanning && draggingNode<0){
+      const ni = pickNode(e);
+      let nextHover = {kind:'none', index:-1};
+      if(ni>=0){ nextHover = {kind:'node', index:ni}; }
+      else { const mi = pickMember(e); if(mi>=0) nextHover = {kind:'member', index:mi}; }
+      if(nextHover.kind!==hover.kind || nextHover.index!==hover.index){ hover = nextHover; draw(); }
+    }
+  });
+  canvas.addEventListener('pointerleave', ()=>{ if(hover.kind!=='none'){ hover={kind:'none', index:-1}; draw(); } });
+  canvas.addEventListener('pointerup', ()=>{ draggingNode=-1; isPanning=false; dragRigidLastWorld=null; });
+  canvas.addEventListener('wheel', (e)=>{ e.preventDefault(); const rect=canvas.getBoundingClientRect(); const cx=e.clientX-rect.left, cy=e.clientY-rect.top; const before=screenToWorld(cx,cy); const factor=Math.pow(1.1, -Math.sign(e.deltaY)); zoom=Math.max(10, Math.min(400, zoom*factor)); const after=screenToWorld(cx,cy); panX += (before.x-after.x)*zoom; panY += -(before.y-after.y)*zoom; draw(); }, {passive:false});
+  window.addEventListener('keydown', (e)=>{ if(e.code==='Space') spaceKeyDown=true; });
+  window.addEventListener('keyup', (e)=>{ if(e.code==='Space') spaceKeyDown=false; });
+
+  /* ========================== *
+   *       PROPERTIES UI        *
+   * ========================== */
+  function renderProps(){
+    if(model.sel.kind==='node' && model.sel.index>=0){
+      const n = model.nodes[model.sel.index];
+      propsDiv.innerHTML = `
+        <div class="mono">Node #${n.id}</div>
+        <div class="propgrid3">
+          <label>X (m)<input id="px" type="number" step="0.1" value="${n.x.toFixed(3)}"></label>
+          <label>Y (m)<input id="py" type="number" step="0.1" value="${n.y.toFixed(3)}"></label>
+          <div></div>
+        </div>
+        <div class="propgrid3" style="margin-top:6px">
+          <label>Fx (kN)<input id="fx" type="number" step="0.5" value="${n.load[0]}"></label>
+          <label>Fy (kN)<input id="fy" type="number" step="0.5" value="${n.load[1]}"></label>
+          <div></div>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <label><input id="lockx" type="checkbox" ${n.fix[0]?'checked':''}> Lock Tx</label>
+          <label><input id="locky" type="checkbox" ${n.fix[1]?'checked':''}> Lock Ty</label>
+          <label><input id="lockrz" type="checkbox" ${n.lockRz?'checked':''}> Lock Rz</label>
+        </div>
+        <div class="propgrid3" style="margin-top:6px">
+          <label>Target X (m)<input id="tx" type="number" step="0.1" value="${(n.target? n.target[0]: '').toString()}"></label>
+          <label>Target Y (m)<input id="ty" type="number" step="0.1" value="${(n.target? n.target[1]: '').toString()}"></label>
+          <button id="clearTarget">Clear Target</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="applyNode">Apply</button>
+        </div>
+      `;
+      document.getElementById('applyNode').onclick = ()=>{
+        n.x = parseFloat(document.getElementById('px').value)||0;
+        n.y = parseFloat(document.getElementById('py').value)||0;
+        n.load[0] = parseFloat(document.getElementById('fx').value)||0;
+        n.load[1] = parseFloat(document.getElementById('fy').value)||0;
+        n.fix[0] = document.getElementById('lockx').checked;
+        n.fix[1] = document.getElementById('locky').checked;
+  const newLockRz = document.getElementById('lockrz').checked;
+  if(newLockRz && n.motor && n.motor.enabled){ n.motor.enabled=false; n.motor.pivot=null; statusEl.textContent='Rz locked: motor disabled on this node.'; }
+  n.lockRz = newLockRz;
+  rebuildRzWelds();
+    if(!n._anchor) n._anchor=[n.x,n.y];
+    if(n.fix[0]){ n.x = n._anchor[0]; n.vx=0; n.prev[0]=n.x; }
+    if(n.fix[1]){ n.y = n._anchor[1]; n.vy=0; n.prev[1]=n.y; }
+        const txv = document.getElementById('tx').value.trim();
+        const tyv = document.getElementById('ty').value.trim();
+        if(txv!=='' && tyv!==''){
+          const tx = parseFloat(txv), ty = parseFloat(tyv);
+          if(Number.isFinite(tx) && Number.isFinite(ty)) n.target=[tx,ty];
+        }
+        n.prev=[n.x,n.y];
+        draw();
+        onModelChanged();
+      };
+      document.getElementById('clearTarget').onclick = ()=>{ n.target=null; draw(); renderProps(); };
+    }
+    else if(model.sel.kind==='member' && model.sel.index>=0){
+      const e = model.members[model.sel.index];
+      const ni = model.idToNodeIndex.get(e.i), nj = model.idToNodeIndex.get(e.j);
+      const a = model.nodes[ni], b = model.nodes[nj];
+      const L = Math.hypot(b.x-a.x, b.y-a.y);
+      propsDiv.innerHTML = `
+        <div class="mono">Member #${e.id}</div>
+        <div class="small">Nodes: ${e.i}–${e.j}</div>
+        <div class="small">L (m): ${L.toFixed(4)} | L0: ${e.L0.toFixed(4)}</div>
+        <div class="propgrid">
+          <label>E (GPa)<input id="eE" type="number" step="1" value="${(e.E/1e9).toFixed(3)}"></label>
+          <label>A (cm²)<input id="eA" type="number" step="0.1" value="${(e.A*1e4).toFixed(3)}"></label>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="applyMember">Apply</button>
+        </div>
+      `;
+      document.getElementById('applyMember').onclick = ()=>{
+        e.E = (parseFloat(document.getElementById('eE').value)||200)*1e9;
+        e.A = (parseFloat(document.getElementById('eA').value)||4)*1e-4;
+      };
+    }
+    else{
+      propsDiv.textContent = 'No selection';
+    }
+  }
+
+  /* ========================== *
+   *          EXPORTS           *
+   * ========================== */
+  // Optional exports for 2D
+  function exportJSON(){ const data={ nodes:model.nodes.map(n=>({id:n.id,x:n.x,y:n.y,fix:n.fix,load:n.load,m:n.m})), members:model.members.map(m=>({id:m.id,i:m.i,j:m.j,E:m.E,A:m.A,L0:m.L0})) }; downloadText('linkages.json', JSON.stringify(data,null,2)); }
+  function exportCSV(){ let out='type,id,i,j,x,y,fixX,fixY,Fx,Fy,E(Pa),A(m2)\n'; for(const n of model.nodes){ out+=`node,${n.id},,,${n.x},${n.y},${n.fix[0]?1:0},${n.fix[1]?1:0},${n.load[0]},${n.load[1]},,\n`; } for(const e of model.members){ out+=`member,${e.id},${e.i},${e.j},,,,,${e.E},${e.A}\n`; } downloadText('linkages.csv', out); }
+  function exportPNG(){ const url = canvas.toDataURL('image/png'); const a=document.createElement('a'); a.href=url; a.download='linkages.png'; a.click(); }
+  function exportSVG(){ const w=canvas.clientWidth, h=canvas.clientHeight; const toS=(n)=>worldToScreen(n.x,n.y); let svg=[`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}' style='background:#ffffff'>`]; for(const e of model.members){ const a=toS(model.nodes[model.idToNodeIndex.get(e.i)]), b=toS(model.nodes[model.idToNodeIndex.get(e.j)]); svg.push(`<line x1='${a.x.toFixed(1)}' y1='${a.y.toFixed(1)}' x2='${b.x.toFixed(1)}' y2='${b.y.toFixed(1)}' stroke='#111827' stroke-width='2'/>`); } for(const n of model.nodes){ const p=toS(n); svg.push(`<circle cx='${p.x.toFixed(1)}' cy='${p.y.toFixed(1)}' r='4' fill='#6b7280'/>`); } svg.push(`</svg>`); downloadText('linkages.svg', svg.join('')); }
+  function downloadText(name, text){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text], {type:'text/plain'})); a.download=name; a.click(); }
+
+  /* ========================== *
+   *         BUTTONS            *
+   * ========================== */
+  btnClear.addEventListener('click', ()=>{
+    model.nodes.length = 0;
+    model.members.length = 0;
+    model.nextNodeId = 1; model.nextMemberId = 1;
+    model.sel = {kind:'none', index:-1};
+    pendingMemberStart = -1;
+    // Reset scope selection and hide plotbar
+    setScopeSelection('none', -1);
+    rebuildLookups();
+  rebuildRzWelds();
+    draw();
+    updateHUD();
+    renderProps();
+    onModelChanged();
+  });
+
+  btnDelete.addEventListener('click', deleteSelection);
+
+  // IK solve button removed; dynamics enforces constraints during Play
+
+  // ==================== DYNAMICS (2D) =====================
+  function ensurePrev(){
+    for(const n of model.nodes){ if(!n.prev) n.prev = [n.x, n.y]; }
+  }
+  function stepDynamics(opts){
+    const doDraw = !opts || opts.draw !== false;
+    if(model.nodes.length===0) return;
+    const dt = Math.max(1e-4, parseFloat(document.getElementById('inpDt').value)||0.016);
+    const sub = Math.max(1, parseInt(document.getElementById('inpSub').value)||4);
+    const newtonMax = Math.max(5, parseInt(document.getElementById('inpIter').value)||20);
+    const tol = 1e-8;
+    const mu = 1e-10; // LM regularization
+
+    // Ensure anchors for supports
+    for(const n of model.nodes){ if(n.fix && !n._anchor){ n._anchor=[n.x,n.y]; } }
+    for(let s=0;s<sub;s++){
+      simTime += dt/sub;
+      // Build q from current positions
+      const N = model.nodes.length; const ndof = 2*N; const q = new Float64Array(ndof); const qprev = new Float64Array(ndof);
+      for(let i=0;i<N;i++){ const n=model.nodes[i]; q[2*i]=n.x; q[2*i+1]=n.y; qprev[2*i]=n.prev? n.prev[0]:n.x; qprev[2*i+1]=n.prev? n.prev[1]:n.y; }
+
+      // Newton–Raphson (Gauss–Newton normal equations)
+      let solved = false; let lastMaxC = Infinity; let singular = false;
+      for(let it=0; it<newtonMax; it++){
+        // Count constraints
+        let m = 0;
+        m += model.members.length; // distance constraints (scalar as squared-length)
+        m += model.rzWelds.length; // extra weld distances for Rz locks
+        for(const n of model.nodes){ if(n.fix){ if(n.fix[0]) m++; if(n.fix[1]) m++; } }
+        for(const n of model.nodes){ const mot=n.motor; if(mot && mot.enabled && mot.pivot!=null && model.idToNodeIndex.has(mot.pivot)) m += 2; }
+        for(const n of model.nodes){ if(n.target){ if(!n.fix[0]) m++; if(!n.fix[1]) m++; } }
+        if(m===0) break;
+        const C = new Float64Array(m);
+        // J as sparse via map, but build JtJ and JtC directly
+        const A = new Array(ndof); for(let i=0;i<ndof;i++) A[i]=new Float64Array(ndof);
+        const g = new Float64Array(ndof);
+        let row=0;
+        // Members
+        for(const e of model.members){
+          const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null){ row++; continue; }
+          const ix=2*ia, iy=ix+1, jx=2*ib, jy=jx+1;
+          const dx=q[jx]-q[ix], dy=q[jy]-q[iy];
+          const Cval = (dx*dx + dy*dy) - (e.L0*e.L0);
+          C[row]=Cval;
+          // Jacobian row has: dC/dxi = -2dx, dC/dyi = -2dy, dC/dxj=+2dx, dC/dyj=+2dy
+          const wx=-2*dx, wy=-2*dy; const vx=+2*dx, vy=+2*dy;
+          // Accumulate A += J^T J and g += J^T C
+          const idxs=[ix,iy,jx,jy]; const vals=[wx,wy,vx,vy];
+          for(let a=0;a<4;a++){ const iax=idxs[a], va=vals[a]; g[iax]+=va*Cval; for(let b=0;b<4;b++){ const ibx=idxs[b], vb=vals[b]; A[iax][ibx] += va*vb; } }
+          row++;
+        }
+        // Rz welds (distance constraints between neighbor nodes of a locked-Rz joint)
+        for(const w of model.rzWelds){
+          const ia=model.idToNodeIndex.get(w.i), ib=model.idToNodeIndex.get(w.j); if(ia==null||ib==null){ row++; continue; }
+          const ix=2*ia, iy=ix+1, jx=2*ib, jy=jx+1;
+          const dx=q[jx]-q[ix], dy=q[jy]-q[iy];
+          const Cval = (dx*dx + dy*dy) - (w.L0*w.L0);
+          C[row]=Cval;
+          const wx=-2*dx, wy=-2*dy; const vx=+2*dx, vy=+2*dy;
+          const idxs=[ix,iy,jx,jy]; const vals=[wx,wy,vx,vy];
+          for(let a=0;a<4;a++){ const iax=idxs[a], va=vals[a]; g[iax]+=va*Cval; for(let b=0;b<4;b++){ const ibx=idxs[b], vb=vals[b]; A[iax][ibx] += va*vb; } }
+          row++;
+        }
+        // Supports
+        for(let iNode=0;iNode<N;iNode++){
+          const n=model.nodes[iNode]; const ix=2*iNode, iy=ix+1; const anc=n._anchor||[q[ix],q[iy]];
+          if(n.fix && n.fix[0]){ const Cval = q[ix] - anc[0]; C[row]=Cval; g[ix]+=1*Cval; A[ix][ix]+=1; row++; }
+          if(n.fix && n.fix[1]){ const Cval = q[iy] - anc[1]; C[row]=Cval; g[iy]+=1*Cval; A[iy][iy]+=1; row++; }
+        }
+        // Motors
+        for(let iNode=0;iNode<N;iNode++){
+          const n=model.nodes[iNode]; const mtr=n.motor; if(!mtr || !mtr.enabled) continue; const pivIdx=model.idToNodeIndex.get(mtr.pivot); if(pivIdx==null) continue;
+          // If Rz is locked at this node, do not apply the motor positional constraint
+          if(n.lockRz){ continue; }
+          const ix=2*iNode, iy=ix+1, px=2*pivIdx, py=px+1; let r=mtr.radius; if(r==null){ const dx=q[ix]-q[px], dy=q[iy]-q[py]; r=Math.hypot(dx,dy); }
+          const theta=(mtr.theta0||0) + (mtr.omega||0)*(simTime - (mtr.t0||0)); const cx=Math.cos(theta), sy=Math.sin(theta);
+          // Cx: x - (xp + r cosθ) = 0 ; Cy: y - (yp + r sinθ)=0
+          const Cx = q[ix] - (q[px] + r*cx); const Cy = q[iy] - (q[py] + r*sy);
+          C[row]=Cx; // dCx/dx=1, dCx/dxp=-1
+          g[ix]+=1*Cx; A[ix][ix]+=1; g[px]+=(-1)*Cx; A[px][px]+=1; A[ix][px]+=(-1); A[px][ix]+=(-1);
+          row++;
+          C[row]=Cy; // dCy/dy=1, dCy/dyp=-1
+          g[iy]+=1*Cy; A[iy][iy]+=1; g[py]+=(-1)*Cy; A[py][py]+=1; A[iy][py]+=(-1); A[py][iy]+=(-1);
+          row++;
+        }
+        // Targets (optional hard constraints on free DOFs)
+        for(let iNode=0;iNode<N;iNode++){
+          const n=model.nodes[iNode]; const ix=2*iNode, iy=ix+1; if(!n.target) continue;
+          if(!n.fix[0]){ const Cval=q[ix]-n.target[0]; C[row]=Cval; g[ix]+=Cval; A[ix][ix]+=1; row++; }
+          if(!n.fix[1]){ const Cval=q[iy]-n.target[1]; C[row]=Cval; g[iy]+=Cval; A[iy][iy]+=1; row++; }
+        }
+        // Check convergence
+        let maxC=0; for(let i=0;i<m;i++){ const v=Math.abs(C[i]); if(v>maxC) maxC=v; }
+        lastMaxC = maxC;
+        if(maxC < tol){ solved = true; break; }
+        // Regularization
+        for(let i=0;i<ndof;i++) A[i][i]+=mu;
+        // Solve A dq = -g (since g = J^T C)
+        const b = new Float64Array(ndof); for(let i=0;i<ndof;i++) b[i] = -g[i];
+        let dq;
+        try{
+          dq = solveDense(A,b);
+        }catch(err){
+          singular = true; break;
+        }
+        // Update q
+        let maxStep=0; for(let i=0;i<ndof;i++){ q[i]+=dq[i]; const a=Math.abs(dq[i]); if(a>maxStep) maxStep=a; }
+        if(maxStep < tol){ solved = true; break; }
+      }
+      // If not solved or singular beyond a threshold, reverse motors to escape lock
+      const lockThreshold = 1e-4; // mixed-units max residual threshold
+      if(singular || (!solved && lastMaxC > lockThreshold)){
+        reverseMotorsOnLock(singular? 'singular' : 'non-converged');
+      }
+      // Write back and compute velocities by finite difference
+      const subDt = dt/sub; const inv = 1/subDt;
+      for(let i=0;i<N;i++){
+        const n=model.nodes[i]; const nx=q[2*i], ny=q[2*i+1];
+        n.vx=(nx - qprev[2*i])*inv; n.vy=(ny - qprev[2*i+1])*inv; n.x=nx; n.y=ny; n.prev=[nx,ny];
+        // Enforce strict clamps for locked DOFs: snap to anchor and zero velocity
+        if(n.fix && n._anchor){
+          if(n.fix[0]){ n.x = n._anchor[0]; n.vx = 0; n.prev[0] = n.x; }
+          if(n.fix[1]){ n.y = n._anchor[1]; n.vy = 0; n.prev[1] = n.y; }
+        }
+      }
+      // Capture a scope sample per substep for smoother plots
+      captureScopeSample(subDt);
+    }
+    if(doDraw){ draw(); }
+    // Update plots after each full step
+    drawPlots();
+  }
+
+  // Reverse motor directions when mechanism locks; keep phase continuity and apply cooldown
+  function reverseMotorsOnLock(reason){
+    let flippedAny = false;
+    const cooldown = 0.25;
+    for(const n of model.nodes){
+      const m = n.motor; if(!m || !m.enabled) continue; if(m.pivot==null) continue; const pivIdx=model.idToNodeIndex.get(m.pivot); if(pivIdx==null) continue;
+      const last = m._lastFlip || -1e9; if(simTime - last < cooldown) continue;
+      const pv = model.nodes[pivIdx]; const dx=n.x-pv.x, dy=n.y-pv.y; const r=Math.hypot(dx,dy);
+      const theta = Math.atan2(dy,dx);
+      m.radius = r; m.theta0 = theta; m.t0 = simTime; m.omega = -(m.omega||0); m._lastFlip = simTime;
+      flippedAny = true;
+    }
+    if(flippedAny){ statusEl.textContent = `Mechanism locked (${reason}). Reversing motor direction.`; }
+  }
+
+  /* ========================== *
+   *          IK SOLVER         *
+   * ========================== */
+  function solveIK(){
+    if(model.nodes.length===0){ statusEl.textContent='No nodes to solve.'; return false; }
+    if(model.members.length===0 && !model.nodes.some(n=>n.target)){ statusEl.textContent='No constraints: add members or set a target.'; return false; }
+    // Copy current positions
+    const X = model.nodes.map(n=>({x:n.x, y:n.y}));
+    const iters = 100; const tol = 1e-4; let maxErr=1e9;
+    for(let k=0;k<iters;k++){
+      maxErr = 0;
+      // Project member distances
+      for(const e of model.members){
+        const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue;
+        const A=model.nodes[ia], B=model.nodes[ib];
+        let ax=X[ia].x, ay=X[ia].y, bx=X[ib].x, by=X[ib].y;
+        const dx=bx-ax, dy=by-ay; const L=Math.hypot(dx,dy); if(L<1e-9) continue;
+        const diff = (L - e.L0);
+        maxErr = Math.max(maxErr, Math.abs(diff));
+        const nx=dx/L, ny=dy/L;
+        // weights: fixed nodes don't move
+        const wA = (A.fix[0]&&A.fix[1]) ? 0 : 1;
+        const wB = (B.fix[0]&&B.fix[1]) ? 0 : 1;
+        const wSum = wA+wB; if(wSum===0) continue;
+        const corr = diff; // full correction split by weights
+        ax += - (wA/wSum)*corr*nx; ay += - (wA/wSum)*corr*ny;
+        bx += + (wB/wSum)*corr*nx; by += + (wB/wSum)*corr*ny;
+        X[ia].x=ax; X[ia].y=ay; X[ib].x=bx; X[ib].y=by;
+      }
+      // Project Rz welds (keep pair distance constant)
+      for(const w of model.rzWelds){
+        const ia=model.idToNodeIndex.get(w.i), ib=model.idToNodeIndex.get(w.j); if(ia==null||ib==null) continue;
+        let ax=X[ia].x, ay=X[ia].y, bx=X[ib].x, by=X[ib].y;
+        const dx=bx-ax, dy=by-ay; const L=Math.hypot(dx,dy); if(L<1e-9) continue;
+        const diff = (L - w.L0);
+        const nx=dx/L, ny=dy/L; // move along the line
+        // Split correction evenly between the two nodes
+        ax += -0.5*diff*nx; ay += -0.5*diff*ny;
+        bx += +0.5*diff*nx; by += +0.5*diff*ny;
+        X[ia].x=ax; X[ia].y=ay; X[ib].x=bx; X[ib].y=by;
+      }
+      // Project node targets
+      for(let i=0;i<model.nodes.length;i++){
+        const n=model.nodes[i]; if(!n.target) continue;
+        if(n.fix[0]&&n.fix[1]) continue; // already fixed
+        // pull toward target with a strong projection, respecting individual DOF locks
+        let ax=X[i].x, ay=X[i].y; const tx=n.target[0], ty=n.target[1];
+        maxErr = Math.max(maxErr, Math.hypot((tx-ax)*(n.fix[0]?0:1), (ty-ay)*(n.fix[1]?0:1)));
+        if(!n.fix[0]) ax = tx;
+        if(!n.fix[1]) ay = ty;
+        X[i].x = ax; X[i].y = ay;
+      }
+      if(maxErr < tol) break;
+    }
+    // Write back
+    for(let i=0;i<model.nodes.length;i++){ model.nodes[i].x=X[i].x; model.nodes[i].y=X[i].y; model.nodes[i].prev=[X[i].x, X[i].y]; }
+    draw();
+    return true;
+  }
+
+  let playing = false;
+  // Cycle tracking for looping animation
+  let cycleStartTime = 0;
+  let cyclePeriod = 0; // seconds; 0 means unknown
+  btnPlay.addEventListener('click', ()=>{
+    // Toggle desired state first, but validate before starting
+    const wantPlay = !playing;
+    playing = wantPlay;
+    // When starting Play, initialize cycle period from first enabled motor (if any)
+    if(playing){
+      // Preflight diagnostics to help when nothing moves
+      if(!validateForPlay()){
+        playing = false;
+        btnPlay.textContent = 'Play';
+        return;
+      }
+      const motors = model.nodes.map((n,i)=>({n,i})).filter(x=>x.n.motor && x.n.motor.enabled && !x.n.lockRz && Math.abs(x.n.motor.omega||0) > 1e-9);
+      const motNode = motors.length>0 ? motors[0].n : null;
+      if(motNode){
+        cyclePeriod = (2*Math.PI) / Math.abs(motNode.motor.omega);
+      } else {
+        cyclePeriod = 0; // no motor; free run
+        statusEl.textContent = 'No active motors (ω=0). Add a motor (🌀) to drive the mechanism.';
+      }
+      // Quick sanity checks to help avoid singular systems
+      const hasAnySupport = model.nodes.some(n=>n.fix && (n.fix[0] || n.fix[1]));
+      if(!hasAnySupport){
+        statusEl.textContent = 'Tip: Add at least one support (🔒) to ground the mechanism. Unconstrained systems can be singular.';
+      }
+      for(const {n:node} of motors){
+        const pivIdx = model.idToNodeIndex.get(node.motor.pivot);
+        if(pivIdx!=null){
+          const pv = model.nodes[pivIdx];
+          const pivotGrounded = pv.fix && pv.fix[0] && pv.fix[1];
+          if(!pivotGrounded){
+            statusEl.textContent = 'Tip: Ground the motor pivot (lock Tx & Ty) or close the loop to avoid singular motion.';
+            break;
+          }
+        }
+      }
+      cycleStartTime = simTime;
+      // Kick one step immediately so users see motion without waiting for the next frame
+      try{ stepDynamics(); }catch{}
+    }
+    btnPlay.textContent = playing ? 'Pause' : 'Play';
+    if(playing){
+      const activeMotors = model.nodes.filter(n=>n.motor && n.motor.enabled && Math.abs(n.motor.omega||0)>1e-9).length;
+      statusEl.textContent = cyclePeriod>0 ? `Playing (motors: ${activeMotors}, loop T=${cyclePeriod.toFixed(3)} s)` : `Playing (motors: ${activeMotors})`;
+    } else {
+      statusEl.textContent = 'Paused';
+    }
+  });
+  btnStep.addEventListener('click', ()=>{
+    stepDynamics();
+  });
+  // Remove Run T behavior: loop is controlled via Play only
+
+  // If you add export buttons to the UI later, wire them like:
+  // document.getElementById('btnExportPNG')?.addEventListener('click', exportPNG);
+
+  btnSample.addEventListener('click', ()=>{
+    btnClear.click();
+    // Four-bar linkage: A-B-C-D-A (A and D are ground pivots)
+    const A=addNodeAt2D(0,0);      // ground left
+    const D=addNodeAt2D(4,0);      // ground right
+    const B=addNodeAt2D(1.2,2.0);  // upper left
+    const C=addNodeAt2D(3.0,2.0);  // upper right
+    // supports
+    model.nodes[model.idToNodeIndex.get(A)].fix=[true,true];
+    model.nodes[model.idToNodeIndex.get(D)].fix=[true,true];
+    // members (links)
+    addMemberBetween(A,B); // crank
+    addMemberBetween(B,C); // coupler
+    addMemberBetween(C,D); // rocker
+    addMemberBetween(D,A); // ground
+    // Set a motor on B about pivot A so it moves by default
+    const nA = model.nodes[model.idToNodeIndex.get(A)];
+    const nB = model.nodes[model.idToNodeIndex.get(B)];
+    const rAB = Math.hypot(nB.x-nA.x, nB.y-nA.y);
+    nB.motor = { enabled:true, pivot:nA.id, omega: 45*Math.PI/180, radius:rAB, theta0: Math.atan2(nB.y-nA.y, nB.x-nA.x), t0: simTime };
+    // initialize prev for dynamics
+    for(const n of model.nodes){ n.prev=[n.x,n.y]; }
+    rebuildRzWelds();
+    draw(); renderProps(); statusEl.textContent='Four-bar sample loaded. Use Play for dynamics or Solve IK to project constraints.';
+    onModelChanged();
+  });
+
+  /* ========================== *
+   *       RENDER LOOP          *
+   * ========================== */
+  function tick(){
+    if(playing && draggingNode<0){
+      stepDynamics();
+      // Loop over first cycle if a motor is present
+      if(cyclePeriod > 0){
+        const tSince = simTime - cycleStartTime;
+        // When exceeding the period, wrap simTime and rebase motor phases to avoid drift
+        if(tSince >= cyclePeriod){
+          const wraps = Math.floor(tSince / cyclePeriod);
+          const delta = wraps * cyclePeriod;
+          cycleStartTime += delta;
+          // Re-anchor motors to keep phase continuity
+          for(const n of model.nodes){
+            const m = n.motor; if(!m || !m.enabled) continue;
+            // Maintain current position as new theta0 at wrap
+            const pivIdx = model.idToNodeIndex.get(m.pivot);
+            if(pivIdx!=null){
+              const pv=model.nodes[pivIdx]; const dx=n.x-pv.x, dy=n.y-pv.y; m.radius=Math.hypot(dx,dy);
+              m.theta0=Math.atan2(dy,dx); m.t0 = simTime; // reset phase origin
+            }
+          }
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // Validate common mistakes that prevent motion and surface tips in status
+  function validateForPlay(){
+    // Any active motor?
+    const motors = model.nodes.map((n,i)=>({n,i})).filter(x=>x.n.motor && x.n.motor.enabled && Math.abs(x.n.motor.omega||0) > 1e-9);
+    if(motors.length===0){ statusEl.textContent='No active motors. Use 🌀 to add a motor with non-zero ω.'; return false; }
+    // Check each motor quickly
+    for(const {n,i} of motors){
+      const m=n.motor;
+      if(n.lockRz){ statusEl.textContent = `Node ${n.id} is lock Rz but has a motor. Unlock Rz or disable the motor.`; return false; }
+      if(n.fix && n.fix[0] && n.fix[1]){ statusEl.textContent = `Node ${n.id} has a motor but is fully locked. Unlock Tx/Ty on that node.`; return false; }
+      if(m.radius!=null && m.radius<=1e-6){ statusEl.textContent = `Motor on node ${n.id} has radius ~0. Increase radius or place node away from pivot.`; return false; }
+      if(m.pivot==null || !model.idToNodeIndex.has(m.pivot)){ statusEl.textContent = `Motor on node ${n.id} has no valid pivot. Recreate motor (pivot → node).`; return false; }
+      const pivIdx = model.idToNodeIndex.get(m.pivot); const pv = model.nodes[pivIdx];
+      const pivotGrounded = pv.fix && pv.fix[0] && pv.fix[1];
+      // Detect if motor subgraph is likely an open chain (no loop)
+      const comp = getComponentNodes(pivIdx);
+      const edgeCount = countEdgesInComponent(comp);
+      const hasLoop = edgeCount >= comp.size; // simple heuristic for an undirected cycle
+      if(!pivotGrounded && !hasLoop){ statusEl.textContent = `Pivot node ${pv.id} is not grounded and the linkage seems open. Ground the pivot (🔒 Tx & Ty) or close the loop.`; return false; }
+    }
+    // At least one support recommended
+    const hasAnySupport = model.nodes.some(n=>n.fix && (n.fix[0] || n.fix[1]));
+    if(!hasAnySupport){ statusEl.textContent = 'Tip: Add at least one support (🔒) to ground the mechanism.'; }
+    return true;
+  }
+
+  function getComponentNodes(startIdx){
+    const visited = new Set();
+    const q=[startIdx]; visited.add(startIdx);
+    const idToIdx = model.idToNodeIndex;
+    while(q.length){
+      const u=q.shift();
+      for(const e of model.members){
+        const ia=idToIdx.get(e.i), ib=idToIdx.get(e.j); if(ia==null||ib==null) continue;
+        if(ia===u && !visited.has(ib)){ visited.add(ib); q.push(ib); }
+        if(ib===u && !visited.has(ia)){ visited.add(ia); q.push(ia); }
+      }
+    }
+    return visited; // set of node indices
+  }
+  function countEdgesInComponent(compSet){
+    let cnt=0; const idToIdx = model.idToNodeIndex;
+    for(const e of model.members){ const ia=idToIdx.get(e.i), ib=idToIdx.get(e.j); if(ia==null||ib==null) continue; if(compSet.has(ia) && compSet.has(ib)) cnt++; }
+    return cnt;
+  }
+
+  // init
+  function init(){
+    resize();
+    rebuildLookups();
+    rebuildRzWelds();
+    updateHUD();
+    renderProps();
+    draw();
+    updateScopeVisibility();
+    tick();
+  }
+  init();
+
+  // helpers
+  function pointSegDist(px,py, x1,y1,x2,y2){ const A=px-x1, B=py-y1, C=x2-x1, D=y2-y1; const dot=A*C+B*D; const len=C*C+D*D; let t=0; if(len>0) t=dot/len; t=Math.max(0,Math.min(1,t)); const xx=x1+C*t, yy=y1+D*t; return Math.hypot(px-xx, py-yy); }
+
+  </script>
+</body>
+</html>
