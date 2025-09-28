@@ -10,11 +10,9 @@
       --bg:#f6f7fb; --panel:#ffffff; --ink:#0f172a; --muted:#5b6b86; --accent:#7c3aed; --accent-2:#06b6d4; --stroke:#e6e8f0; --ok:#10b981; --warn:#f59e0b; --err:#ef4444;
       --shadow: 0 10px 30px rgba(17,24,39,0.08);
     }
-  html,body{ height:100%; min-height:100vh; margin:0; background:linear-gradient(135deg,#f6f7fb,#eef1f8); color:var(--ink); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif }
-  .wrap{ display:grid; grid-template-columns: 68px 1fr 200px; grid-template-rows: 48px minmax(0,1fr); height:100vh }
-  /* Collapsible columns for maximum canvas width */
-  .wrap.panel-collapsed{ grid-template-columns: 68px 1fr 0px }
-  .wrap.tools-collapsed{ grid-template-columns: 0px 1fr 200px }
+  body{ margin:0; background:var(--bg) }
+  /* Page layout: left tools column, center stage, right properties panel */
+  .wrap{ display:grid; grid-template-columns: 72px 1fr 320px; grid-template-rows: 48px 1fr; height:100vh; background:var(--bg) }
   .wrap.tools-collapsed.panel-collapsed{ grid-template-columns: 0px 1fr 0px }
   .wrap.panel-collapsed aside.panel{ display:none }
   .wrap.tools-collapsed aside.tools{ display:none }
@@ -25,7 +23,7 @@
     header button.alt{ background:var(--accent); }
     header button.ghost{ background:transparent; color:var(--ink); border:1px solid var(--stroke) }
 
-  aside.tools{ grid-row: 2; background:var(--panel); border-right:1px solid var(--stroke); padding:8px 6px; display:flex; flex-direction:column; gap:6px; align-items:center }
+  aside.tools{ grid-row: 2; grid-column:1; background:var(--panel); border-right:1px solid var(--stroke); padding:8px 6px; display:flex; flex-direction:column; gap:6px; align-items:center }
   .tool{ width:48px; height:48px; border-radius:12px; border:1px solid var(--stroke); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--muted); background:#fafbff; font-size:16px }
   .tool.active{ background:linear-gradient(135deg,#ede9fe,#cffafe); color:#2b2555; border-color:#ded6ff; font-weight:700 }
   .tool span{ font-size:10px; position:absolute; transform:translateY(28px); }
@@ -41,12 +39,12 @@
   .plotbar .vals .kv{ white-space:nowrap }
   #plotCanvas{ width:100%; height:120px; display:block }
 
-  #stage{ position:relative; background:transparent; height:100%; min-height:400px; overflow:hidden }
+  #stage{ grid-row:2; grid-column:2; position:relative; background:transparent; height:100%; min-height:400px; overflow:hidden }
     canvas{ display:block; width:100%; height:100% }
   .hud{ position:absolute; bottom:10px; left:10px; background:rgba(255,255,255,0.9); padding:4px 8px; border-radius:8px; font-size:11px; color:#0b1220; border:1px solid var(--stroke); box-shadow:var(--shadow) }
   .statusbar{ position:absolute; left:0; right:0; bottom:0; padding:8px 12px; color:var(--muted); font-size:11px; pointer-events:none }
 
-    aside.panel{ grid-row: 2; background:var(--panel); border-left:1px solid var(--stroke); padding:10px; overflow:auto }
+  aside.panel{ grid-row: 2; grid-column:3; background:var(--panel); border-left:1px solid var(--stroke); padding:10px; overflow:auto }
     h2{ font-size:12px; color:#1f2937; margin:0 0 8px 0; letter-spacing:.3px; text-transform:uppercase }
     .group{ border:1px solid var(--stroke); border-radius:12px; padding:10px; margin-bottom:10px; background:#ffffff }
     .row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap }
@@ -59,22 +57,21 @@
     button.primary{ background:linear-gradient(135deg,#7c3aed,#06b6d4); color:white; border:none; font-weight:700; font-size:12px; padding:6px 10px }
     .badge{ padding:3px 6px; border-radius:999px; background:#eef2ff; border:1px solid var(--stroke); color:#4f46e5; font-weight:600; font-size:11px }
     .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-    .hint{ color:#64748b; font-size:11px }
   </style>
-</head>
-<body>
-  <div class="wrap panel-collapsed">
-    <header>
-  <div class="title">Linkages — 2D Truss Studio</div>
-      <div class="actions">
-  <button id="btnTogglePanel" class="ghost" title="Show/Hide properties panel">Panel</button>
-        <button id="btnPlay" class="ghost">Play</button>
-        <button id="btnStep" class="ghost">Step</button>
-        <button id="btnClear" class="ghost">New</button>
-        <button id="btnDelete" class="ghost">Delete</button>
-        <button id="btnSample" class="primary">Sample</button>
-      </div>
-    </header>
+ </head>
+ <body>
+   <div class="wrap">
+     <header>
+       <div class="title">Linkages — 2D Truss Studio</div>
+       <div class="actions">
+         <button id="btnTogglePanel" class="ghost" title="Show/Hide properties panel">Panel</button>
+         <button id="btnPlay" class="ghost">Play</button>
+         <button id="btnStep" class="ghost">Step</button>
+         <button id="btnClear" class="ghost">New</button>
+         <button id="btnDelete" class="ghost">Delete</button>
+         <button id="btnSample" class="primary">Sample</button>
+       </div>
+     </header>
 
     <aside class="tools">
       <div class="tool active" data-tool="select" title="Select / drag nodes">🖱️</div>
@@ -84,6 +81,7 @@
       <div class="tool" data-tool="force" title="Set node forces (kN)">⚡</div>
   <div class="tool" data-tool="target" title="Set/clear IK target for node">🎯</div>
   <div class="tool" data-tool="motor" title="Put motor on node or pivot (auto-pivot, only ω)">🌀</div>
+    <div class="tool" data-tool="edit-lengths" title="Show and edit bar lengths">📏</div>
       <div class="tool" data-tool="scope" title="Scope: view numeric values and plots">📈</div>
       <div class="tool" data-tool="drag-rigid" title="Drag with rigid bar lengths">✋</div>
       <div class="tool" data-tool="pan" title="Pan / orbit">🧭</div>
@@ -220,6 +218,8 @@
   let draggingNode = -1;
   let spaceKeyDown = false;
   let dragRigidLastWorld = null; // track last mouse world pos for drag-rigid
+  // Hitboxes for edit-lengths overlay (lock toggles)
+  let editLenHitboxes = []; // [{mi, type:'lock', x,y,w,h} in screen coords]
 
   function resize(){
     const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -278,7 +278,7 @@
     } else if(t==='select'){
       statusEl.textContent = 'Select: click a node or a member. Drag to move a node.';
     } else if(t==='drag-rigid'){
-      statusEl.textContent = 'Drag (rigid): drag a node; bar lengths are preserved (IK each move).';
+      statusEl.textContent = 'Drag (rigid): nudge a node by moving the mouse (direction-based); bars stay rigid via IK.';
     } else if(t==='pan'){
       statusEl.textContent = 'Pan: drag canvas. Wheel to zoom.';
     } else if(t==='force'){
@@ -289,6 +289,8 @@
       statusEl.textContent = 'Target: click a node to set an IK target (X,Y).';
     } else if(t==='motor'){
       statusEl.textContent = 'Motor: click a moving node (auto-pivot), or click a grounded node to drive one of its links. Only ω is requested; radius = current distance.';
+    } else if(t==='edit-lengths'){
+      statusEl.textContent = 'Edit lengths: bar lengths are shown; click a bar to set a new length (does not alter other bars).';
     } else if(t==='scope'){
       statusEl.textContent = 'Scope: click a node or member to track and plot. Values show below.';
     } else if(t==='delete-select' || t==='delete-add-node'){
@@ -306,6 +308,8 @@
     } else {
       statusEl.textContent = '';
     }
+    // Redraw so mode-specific overlays (like edit-lengths checkboxes) appear immediately
+    draw();
   }
 
   // Build delete overlays for tools (Ctrl/Cmd gated)
@@ -388,6 +392,8 @@
   function drawScene(){
     ctx.save();
     ctx.translate(viewW/2 + panX, viewH/2 + panY);
+    // Clear edit-lengths hitboxes each draw
+    editLenHitboxes = [];
   // Draw members
     for(const e of model.members){
       const ni=model.idToNodeIndex.get(e.i), nj=model.idToNodeIndex.get(e.j); if(ni==null||nj==null) continue;
@@ -399,6 +405,31 @@
       }
       ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap='round';
       ctx.beginPath(); ctx.moveTo(a.x*zoom, -a.y*zoom); ctx.lineTo(b.x*zoom, -b.y*zoom); ctx.stroke();
+      // Length labels and lock checkbox when editing lengths
+      if(tool==='edit-lengths'){
+        const cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
+        const text = (e.L0!=null? e.L0 : Math.hypot(b.x-a.x,b.y-a.y)).toFixed(3)+' m';
+        ctx.fillStyle = e.lockLen ? '#111827' : '#6b7280';
+        ctx.strokeStyle='white'; ctx.lineWidth=3; ctx.font= (e.lockLen ? 'bold ' : '') + '11px system-ui,Segoe UI,Roboto,sans-serif';
+  const tx = cx*zoom+6, ty = -cy*zoom-6;
+        ctx.strokeText(text, tx, ty);
+        ctx.fillText(text, tx, ty);
+        // Draw a small lock checkbox to the left of the text
+        const boxSize = 12; const pad = 4; const bx = tx - (boxSize + pad + 2); const by = ty - boxSize + 2;
+        ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.rect(bx, by, boxSize, boxSize); ctx.fill(); ctx.stroke();
+        if(e.lockLen){
+          ctx.strokeStyle = '#111827'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(bx+3, by+boxSize/2);
+          ctx.lineTo(bx+boxSize/2, by+boxSize-3);
+          ctx.lineTo(bx+boxSize-3, by+3);
+          ctx.stroke();
+        }
+        // Register hitbox in canvas/screen coordinates (account for current translate)
+        const canvasBx = (viewW/2 + panX) + bx;
+        const canvasBy = (viewH/2 + panY) + by;
+        editLenHitboxes.push({ mi: model.members.indexOf(e), type:'lock', x: canvasBx, y: canvasBy, w: boxSize, h: boxSize });
+      }
     }
     // nodes
     for(const n of model.nodes){
@@ -690,7 +721,7 @@
     const E = (parseFloat(inpE.value)||200) * 1e9;  // GPa->Pa
     const A = (parseFloat(inpA.value)||4)   * 1e-4; // cm^2->m^2
 
-    const e = { id: model.nextMemberId++, i:iId, j:jId, E, A, L0, N:0, Nmax:1 };
+  const e = { id: model.nextMemberId++, i:iId, j:jId, E, A, L0, N:0, Nmax:1, lockLen:false };
     model.members.push(e);
     rebuildLookups();
     draw();
@@ -913,7 +944,7 @@
       draw(); renderProps();
       return;
     }
-    if(tool==='select'){
+  if(tool==='select'){
       if(nodeIdx>=0){ model.sel={kind:'node', index:nodeIdx}; draggingNode=nodeIdx; } else {
         // check members proximity (larger tolerance)
         const mi = pickMember(e);
@@ -922,6 +953,28 @@
       draw(); renderProps();
     } else if(tool==='drag-rigid'){
       if(nodeIdx>=0){ model.sel={kind:'node', index:nodeIdx}; draggingNode=nodeIdx; draw(); renderProps(); const rect=canvas.getBoundingClientRect(); const w=screenToWorld(e.clientX-rect.left, e.clientY-rect.top); dragRigidLastWorld = w; }
+  } else if(tool==='edit-lengths'){
+      // First, check if clicking a lock checkbox
+      const rect = canvas.getBoundingClientRect(); const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+      // Hit test directly with stored canvas coordinates
+      const hit = editLenHitboxes.find(hb => mx>=hb.x && mx<=hb.x+hb.w && my>=hb.y && my<=hb.y+hb.h);
+      if(hit){
+        const mi = hit.mi; if(mi>=0 && mi<model.members.length){ const m=model.members[mi]; m.lockLen = !m.lockLen; draw(); renderProps(); onModelChanged(); }
+        return;
+      }
+      // Pick a member and set a new rest length. Only enforce user-imposed constraints (supports/targets/welds/motors).
+      const mi = pickMember(e);
+      if(mi>=0){
+        const m = model.members[mi]; const ia=model.idToNodeIndex.get(m.i), ib=model.idToNodeIndex.get(m.j);
+        if(ia==null||ib==null){ statusEl.textContent='Member endpoints not found.'; return; }
+        const A=model.nodes[ia], B=model.nodes[ib];
+        const cur = (m.L0!=null? m.L0 : Math.hypot(B.x-A.x,B.y-A.y));
+        const txt = prompt(`New length for member ${m.i}–${m.j} (m)`, cur.toFixed(3));
+        if(txt==null) return;
+        const Lnew = parseFloat(txt);
+        if(!Number.isFinite(Lnew) || Lnew<=0){ statusEl.textContent='Invalid length.'; return; }
+        setMemberLengthByIndex(mi, Lnew, { autoLock:true });
+      }
     } else if(tool==='delete-select' || tool==='delete-add-node'){
       if(nodeIdx>=0){ model.sel={kind:'node', index:nodeIdx}; deleteSelection(); }
       else { const mi = pickMember(e); if(mi>=0){ model.sel={kind:'member', index:mi}; deleteSelection(); } }
@@ -1029,13 +1082,19 @@
     if((tool==='select' || tool==='drag-rigid') && draggingNode>=0){
       const rect=canvas.getBoundingClientRect(); const w=screenToWorld(e.clientX-rect.left, e.clientY-rect.top);
       const n=model.nodes[draggingNode];
+      if(tool==='drag-rigid' && n.fix && n.fix[0] && n.fix[1]){ statusEl.textContent='This node is locked (Tx & Ty). Drag a free node.'; return; }
       // Desired new position: absolute for select tool, directional delta for drag-rigid
       let nx, ny;
       if(tool==='drag-rigid'){
         if(!dragRigidLastWorld) dragRigidLastWorld = w;
-        let dx = w.x - dragRigidLastWorld.x, dy = w.y - dragRigidLastWorld.y;
-        const maxStep = 0.2; const mag=Math.hypot(dx,dy); if(mag>maxStep && mag>0){ const s=maxStep/mag; dx*=s; dy*=s; }
+        // Compute total desired delta since last applied, then cap per-event step and keep remainder for next frame
+        let dxTot = w.x - dragRigidLastWorld.x, dyTot = w.y - dragRigidLastWorld.y;
+        const maxStep = 0.2; const mag=Math.hypot(dxTot,dyTot);
+        let dx = dxTot, dy = dyTot;
+        if(mag>maxStep && mag>0){ const s=maxStep/mag; dx = dxTot*s; dy = dyTot*s; }
         nx = n.x + dx; ny = n.y + dy;
+        // Advance lastWorld only by the applied portion to accumulate leftover movement
+        dragRigidLastWorld = { x: dragRigidLastWorld.x + dx, y: dragRigidLastWorld.y + dy };
       } else {
         nx = snapVal(w.x); ny = snapVal(w.y);
       }
@@ -1049,20 +1108,19 @@
       if(!n.fix[0]) n.x = nx; // honor Tx lock
       if(!n.fix[1]) n.y = ny; // honor Ty lock
       if(tool==='drag-rigid'){
-        dragRigidLastWorld = w;
         const hasConstraints = model.members.length>0 || model.rzWelds.length>0 || model.nodes.some(nn=>nn.target);
         if(!hasConstraints){
           // No constraints to satisfy; treat as simple drag
           n.prev=[n.x,n.y]; draw(); renderProps(); return;
         }
         // Run a small number of IK iterations to pull the whole mechanism to feasibility
-        try{ solveIK(); }catch{}
-        // If still badly violating any member length, revert partially toward feasible by averaging
-        const maxLenErr = (()=>{ let me=0; for(const e of model.members){ const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue; const A=model.nodes[ia], B=model.nodes[ib]; me=Math.max(me, Math.abs(Math.hypot(B.x-A.x,B.y-A.y)-e.L0)); } return me; })();
+  try{ solveIK({enforceOnlyLockedLengths:true}); }catch{}
+  // If still badly violating any locked length, revert partially toward feasible by averaging
+  const maxLenErr = (()=>{ let me=0; for(const e of model.members){ if(!e.lockLen) continue; const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue; const A=model.nodes[ia], B=model.nodes[ib]; me=Math.max(me, Math.abs(Math.hypot(B.x-A.x,B.y-A.y)-e.L0)); } return me; })();
         if(maxLenErr>1e-3){ // if infeasible, ease back toward last feasible pos
           n.x = 0.5*n.x + 0.5*oldX;
           n.y = 0.5*n.y + 0.5*oldY;
-          try{ solveIK(); }catch{}
+          try{ solveIK({enforceOnlyLockedLengths:true}); }catch{}
         }
         // Validate finite & bounded positions; if invalid or out-of-bounds, restore backup
         let valid = true;
@@ -1076,7 +1134,7 @@
           for(const nd of model.nodes){ if(Math.abs(nd.x - cx) > allowX || Math.abs(nd.y - cy) > allowY){ valid=false; break; } }
         }
         // If still infeasible after second attempt, also treat as invalid
-        const maxLenErr2 = (()=>{ let me=0; for(const e of model.members){ const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue; const A=model.nodes[ia], B=model.nodes[ib]; me=Math.max(me, Math.abs(Math.hypot(B.x-A.x,B.y-A.y)-e.L0)); } return me; })();
+  const maxLenErr2 = (()=>{ let me=0; for(const e of model.members){ if(!e.lockLen) continue; const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue; const A=model.nodes[ia], B=model.nodes[ib]; me=Math.max(me, Math.abs(Math.hypot(B.x-A.x,B.y-A.y)-e.L0)); } return me; })();
         if(maxLenErr2>1e-2) valid=false;
         if(!valid && backup){
           for(let i=0;i<model.nodes.length;i++){ model.nodes[i].x=backup[i].x; model.nodes[i].y=backup[i].y; model.nodes[i].prev=[backup[i].prev[0], backup[i].prev[1]]; }
@@ -1097,6 +1155,181 @@
   canvas.addEventListener('pointerleave', ()=>{ if(hover.kind!=='none'){ hover={kind:'none', index:-1}; draw(); } });
   canvas.addEventListener('pointerup', ()=>{ draggingNode=-1; isPanning=false; dragRigidLastWorld=null; });
   canvas.addEventListener('wheel', (e)=>{ e.preventDefault(); const rect=canvas.getBoundingClientRect(); const cx=e.clientX-rect.left, cy=e.clientY-rect.top; const before=screenToWorld(cx,cy); const factor=Math.pow(1.1, -Math.sign(e.deltaY)); zoom=Math.max(10, Math.min(400, zoom*factor)); const after=screenToWorld(cx,cy); panX += (before.x-after.x)*zoom; panY += -(before.y-after.y)*zoom; draw(); }, {passive:false});
+  // Helper: set member length with vector-close and relaxed constraints for edit
+  function setMemberLengthByIndex(mi, Lnew, opts){
+    const options = opts||{}; const autoLock = options.autoLock!==false;
+    const m = model.members[mi]; if(!m) return false;
+    const ia=model.idToNodeIndex.get(m.i), ib=model.idToNodeIndex.get(m.j);
+    if(ia==null||ib==null){ statusEl.textContent='Member endpoints not found.'; return false; }
+    const A=model.nodes[ia], B=model.nodes[ib];
+    // Backup
+    const backupNodes = model.nodes.map(nd=>({x:nd.x,y:nd.y,prev:nd.prev?[nd.prev[0],nd.prev[1]]:[nd.x,nd.y]}));
+    const backupL0 = m.L0; const backupLock = !!m.lockLen;
+    // Commit length and lock
+    m.L0 = Lnew; if(autoLock) m.lockLen = true;
+    try{
+      // Vector-close nudge
+      const dx=B.x-A.x, dy=B.y-A.y; const L=Math.hypot(dx,dy)||1e-9; const nx=dx/L, ny=dy/L; const diff=L - Lnew;
+      const wA = (A.fix[0]&&A.fix[1]) ? 0 : 1; const wB = (B.fix[0]&&B.fix[1]) ? 0 : 1; const ws = wA+wB;
+      if(ws===0) throw new Error('Both endpoints are fixed. Unlock at least one endpoint to change length.');
+      if(wA>0){ A.x -= (wA/ws)*diff*nx; A.y -= (wA/ws)*diff*ny; }
+      if(wB>0){ B.x += (wB/ws)*diff*nx; B.y += (wB/ws)*diff*ny; }
+      // Solve with only locked lengths; ignore targets/welds during edit; prefer closest pose
+      const prefer = backupNodes.map(p=>({x:p.x, y:p.y}));
+      // Use LM least-squares solver that enforces only locked lengths
+      let ok = solveLockedLengthsLM({ preferCloseTo: prefer, closeWeight: 0.1, maxIters: 80, tol: 1e-5 });
+      // Evaluate error on locked bars and the edited bar
+      const errLocked = maxLockedLengthError();
+      const errEdited = memberLengthError(mi);
+      if(!ok && (errLocked <= 1e-3 || errEdited <= 1e-4)) ok = true;
+      if(!ok){
+        // Retry with different damping/iters
+        ok = solveLockedLengthsLM({ preferCloseTo: prefer, closeWeight: 0.0, maxIters: 160, tol: 2e-5 });
+      }
+      if(!ok){
+        // Re-evaluate after retry
+        const e2 = maxLockedLengthError(); const eEdited2 = memberLengthError(mi);
+        if(!(e2 <= 1e-3 || eEdited2 <= 1e-4)) throw new Error('No convergence for new length.');
+      }
+      // Sanity
+      for(const nd of model.nodes){ if(!Number.isFinite(nd.x) || !Number.isFinite(nd.y)) throw new Error('Solver produced invalid coordinates.'); }
+      for(const nd of model.nodes){ nd.prev=[nd.x,nd.y]; }
+      statusEl.textContent = `Updated member ${m.i}–${m.j} length to ${Lnew.toFixed(3)} m.`;
+      draw(); renderProps(); onModelChanged();
+      return true;
+    }catch(err){
+      for(let i=0;i<model.nodes.length;i++){ model.nodes[i].x=backupNodes[i].x; model.nodes[i].y=backupNodes[i].y; model.nodes[i].prev=[backupNodes[i].prev[0], backupNodes[i].prev[1]]; }
+      m.L0 = backupL0; m.lockLen = backupLock;
+      statusEl.textContent = `Cannot set new length: ${err.message||err}`;
+      draw();
+      return false;
+    }
+  }
+
+  // Measure maximum absolute length error across locked members
+  function maxLockedLengthError(){
+    let me = 0;
+    for(const e of model.members){ if(!e.lockLen) continue; const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue; const A=model.nodes[ia], B=model.nodes[ib]; const err=Math.abs(Math.hypot(B.x-A.x,B.y-A.y) - e.L0); if(err>me) me=err; }
+    return me;
+  }
+  // Measure absolute length error for a specific member index
+  function memberLengthError(mi){ const e=model.members[mi]; if(!e) return Infinity; const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) return Infinity; const A=model.nodes[ia], B=model.nodes[ib]; return Math.abs(Math.hypot(B.x-A.x,B.y-A.y) - e.L0); }
+
+  // New: Levenberg–Marquardt solver for only-locked member lengths, with optional "stay close" bias
+  function solveLockedLengthsLM(opts){
+    const prefer = (opts&&opts.preferCloseTo)||null;
+    const closeW = (opts&&opts.closeWeight)||0.0; // 0..1
+    const maxIters = (opts&&opts.maxIters)||80;
+    const tol = (opts&&opts.tol)||1e-5;
+    // Map variables (free DOFs)
+    const varIndex = new Map(); // key `${nid}:x|y` -> idx
+    const vars = []; // references into nodes
+    const base = []; // preferred positions
+    let idx=0;
+    for(const n of model.nodes){
+      if(!n.fix[0]){ varIndex.set(n.id+':x', idx++); vars.push({node:n, key:'x'}); base.push(prefer?prefer[model.nodes.indexOf(n)].x:n.x); }
+      if(!n.fix[1]){ varIndex.set(n.id+':y', idx++); vars.push({node:n, key:'y'}); base.push(prefer?prefer[model.nodes.indexOf(n)].y:n.y); }
+    }
+    const nvar = idx;
+    if(nvar===0) return false;
+    // Helper to compute residuals and Jacobian in CRS-like flat arrays
+    function buildSystem(){
+      const r=[]; const rows=[]; // rows: {cols:[], vals:[]}
+      // Locked length constraints
+      for(const e of model.members){ if(!e.lockLen) continue; const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue; const A=model.nodes[ia], B=model.nodes[ib]; const dx=B.x-A.x, dy=B.y-A.y; let L=Math.hypot(dx,dy); if(L<1e-9) L=1e-9; const res = (L - e.L0); if(!Number.isFinite(res)) continue; const row={cols:[], vals:[]};
+        const dLdx = dx/L, dLdy = dy/L; // deriv wrt B minus wrt A
+        const iax = varIndex.get(A.id+':x'); const iay = varIndex.get(A.id+':y'); const ibx = varIndex.get(B.id+':x'); const iby = varIndex.get(B.id+':y');
+        if(iax!=null){ row.cols.push(iax); row.vals.push(-dLdx); }
+        if(iay!=null){ row.cols.push(iay); row.vals.push(-dLdy); }
+        if(ibx!=null){ row.cols.push(ibx); row.vals.push(+dLdx); }
+        if(iby!=null){ row.cols.push(iby); row.vals.push(+dLdy); }
+        // Only keep rows that actually touch a variable; otherwise it can't be improved
+        if(row.cols.length){ rows.push(row); r.push(res); }
+      }
+      // Prefer-close soft constraints
+      if(closeW>0 && prefer){
+        const w = Math.sqrt(closeW);
+        for(let k=0;k<nvar;k++){
+          const v = vars[k]; const cur = v.node[v.key]; const want = base[k]; const res = w*(cur - want); const row={cols:[k], vals:[w]};
+          rows.push(row); r.push(res);
+        }
+      }
+      return {rows, r};
+    }
+    function assembleNormal(rows, r, lambda){
+      const H = new Array(nvar*nvar).fill(0);
+      const g = new Array(nvar).fill(0);
+      for(let i=0;i<rows.length;i++){
+        const {cols, vals} = rows[i]; const ri = r[i];
+        for(let a=0;a<cols.length;a++){
+          const ia = cols[a]; const va = vals[a];
+          g[ia] += va*ri;
+          for(let b=0;b<cols.length;b++){
+            const ib = cols[b]; const vb = vals[b];
+            H[ia*nvar + ib] += va*vb;
+          }
+        }
+      }
+      // Damping
+      const lam = lambda;
+      for(let d=0; d<nvar; d++) H[d*nvar + d] += lam;
+      return {H,g};
+    }
+    function solveLinear(H, b){ // solve H * x = b, naive Gauss elimination
+      const n = nvar; const A = new Array(n);
+      for(let i=0;i<n;i++){ A[i] = new Array(n+1); for(let j=0;j<n;j++) A[i][j]=H[i*n+j]; A[i][n]=b[i]; }
+      // Forward elimination
+      for(let i=0;i<n;i++){
+        // pivot
+        let piv=i; for(let k=i+1;k<n;k++){ if(Math.abs(A[k][i])>Math.abs(A[piv][i])) piv=k; }
+        if(Math.abs(A[piv][i])<1e-12) continue;
+        if(piv!==i){ const tmp=A[i]; A[i]=A[piv]; A[piv]=tmp; }
+        const diag = A[i][i];
+        for(let j=i;j<=n;j++) A[i][j]/=diag;
+        for(let k=0;k<n;k++) if(k!==i){ const f=A[k][i]; if(f===0) continue; for(let j=i;j<=n;j++) A[k][j]-=f*A[i][j]; }
+      }
+      const x = new Array(n).fill(0); for(let i=0;i<n;i++) x[i]=A[i][n]; return x;
+    }
+    function currentCost(){
+      let c=0; for(const e of model.members){ if(!e.lockLen) continue; const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue; const A=model.nodes[ia], B=model.nodes[ib]; const res = Math.hypot(B.x-A.x,B.y-A.y) - e.L0; c += res*res; }
+      if(closeW>0 && prefer){ for(let k=0;k<nvar;k++){ const v=vars[k]; const res = Math.sqrt(closeW)*(v.node[v.key]-base[k]); c += res*res; } }
+      return 0.5*c;
+    }
+    let lambda = 1e-2; // initial damping
+    let cost = currentCost();
+    for(let it=0; it<maxIters; it++){
+      const {rows, r} = buildSystem();
+      if(rows.length===0){ break; }
+      const {H,g} = assembleNormal(rows, r, lambda);
+      const step = solveLinear(H, g.map(x=>-x));
+      // Try step with simple line search
+      const maxStep = 20; // pixels
+      let scale = 1.0;
+      // Clamp step per variable
+      const clamped = step.map(s=> Math.max(Math.min(s, maxStep), -maxStep));
+      let accepted=false; let bestDelta=null; let newCost=cost;
+      for(let ls=0; ls<6; ls++){
+        // Apply trial
+        for(let k=0;k<nvar;k++){ const v=vars[k]; v.node[v.key] += scale*clamped[k]; }
+        const c2 = currentCost();
+        if(c2 < cost){ accepted=true; bestDelta = clamped.map(s=>scale*s); newCost=c2; break; }
+        // revert and try smaller
+        for(let k=0;k<nvar;k++){ const v=vars[k]; v.node[v.key] -= scale*clamped[k]; }
+        scale *= 0.5;
+      }
+      if(!accepted){ lambda *= 10; // increase damping and retry next iter
+      } else {
+        cost = newCost; lambda = Math.max(lambda/3, 1e-6);
+        // Check convergence by step norm and gradient magnitude
+        let stepNorm=0; for(const d of bestDelta) stepNorm += d*d; stepNorm = Math.sqrt(stepNorm);
+        let gradNorm=0; for(const gi of g) gradNorm += gi*gi; gradNorm = Math.sqrt(gradNorm);
+        if(stepNorm < tol && gradNorm < 1e-4) break;
+      }
+    }
+    // success if locked length errors are small
+    const err = maxLockedLengthError();
+    return err <= 1e-3;
+  }
   window.addEventListener('keydown', (e)=>{ if(e.code==='Space') spaceKeyDown=true; });
   window.addEventListener('keyup', (e)=>{ if(e.code==='Space') spaceKeyDown=false; });
 
@@ -1171,6 +1404,10 @@
           <label>E (GPa)<input id="eE" type="number" step="1" value="${(e.E/1e9).toFixed(3)}"></label>
           <label>A (cm²)<input id="eA" type="number" step="0.1" value="${(e.A*1e4).toFixed(3)}"></label>
         </div>
+        <div class="propgrid" style="margin-top:6px">
+          <label>L0 (m)<input id="eL0" type="number" step="0.001" value="${e.L0.toFixed(3)}"></label>
+          <label style="display:flex;align-items:center;gap:6px"><input id="eLockLen" type="checkbox" ${e.lockLen?'checked':''}> Lock length</label>
+        </div>
         <div class="row" style="margin-top:6px">
           <button id="applyMember">Apply</button>
         </div>
@@ -1178,6 +1415,11 @@
       document.getElementById('applyMember').onclick = ()=>{
         e.E = (parseFloat(document.getElementById('eE').value)||200)*1e9;
         e.A = (parseFloat(document.getElementById('eA').value)||4)*1e-4;
+        const maybeL0 = parseFloat(document.getElementById('eL0').value);
+        if(Number.isFinite(maybeL0) && maybeL0>0){ e.L0 = maybeL0; }
+        e.lockLen = document.getElementById('eLockLen').checked;
+        renderProps();
+        onModelChanged();
       };
     }
     else{
@@ -1369,16 +1611,25 @@
   /* ========================== *
    *          IK SOLVER         *
    * ========================== */
-  function solveIK(){
+  function solveIK(opts){
+    const options = opts||{};
     if(model.nodes.length===0){ statusEl.textContent='No nodes to solve.'; return false; }
     if(model.members.length===0 && !model.nodes.some(n=>n.target)){ statusEl.textContent='No constraints: add members or set a target.'; return false; }
-    // Copy current positions
+    // Copy current positions and optional preferred positions for closest-pose solve
     const X = model.nodes.map(n=>({x:n.x, y:n.y}));
-    const iters = 100; const tol = 1e-4; let maxErr=1e9;
+    const prefer = Array.isArray(options.preferCloseTo) && options.preferCloseTo.length===model.nodes.length
+      ? options.preferCloseTo.map(p=>({x:p.x, y:p.y})) : null;
+    const closeW = typeof options.closeWeight==='number' ? Math.max(0, Math.min(1, options.closeWeight)) : 0;
+    const iters = Number.isFinite(options.maxIters) ? options.maxIters : 200;
+    const tol = Number.isFinite(options.tol) ? options.tol : 1e-5;
+    const writeBack = options.writeBack!==false; // default true
+    let maxErr=1e9; let converged=false;
     for(let k=0;k<iters;k++){
       maxErr = 0;
       // Project member distances
+      const onlyLocked = !!options.enforceOnlyLockedLengths;
       for(const e of model.members){
+        if(onlyLocked && !e.lockLen) continue;
         const ia=model.idToNodeIndex.get(e.i), ib=model.idToNodeIndex.get(e.j); if(ia==null||ib==null) continue;
         const A=model.nodes[ia], B=model.nodes[ib];
         let ax=X[ia].x, ay=X[ia].y, bx=X[ib].x, by=X[ib].y;
@@ -1396,7 +1647,9 @@
         X[ia].x=ax; X[ia].y=ay; X[ib].x=bx; X[ib].y=by;
       }
       // Project Rz welds (keep pair distance constant)
+      const ignoreWelds = !!options.ignoreWelds;
       for(const w of model.rzWelds){
+        if(ignoreWelds) break;
         const ia=model.idToNodeIndex.get(w.i), ib=model.idToNodeIndex.get(w.j); if(ia==null||ib==null) continue;
         let ax=X[ia].x, ay=X[ia].y, bx=X[ib].x, by=X[ib].y;
         const dx=bx-ax, dy=by-ay; const L=Math.hypot(dx,dy); if(L<1e-9) continue;
@@ -1408,7 +1661,9 @@
         X[ia].x=ax; X[ia].y=ay; X[ib].x=bx; X[ib].y=by;
       }
       // Project node targets
+      const ignoreTargets = !!options.ignoreTargets;
       for(let i=0;i<model.nodes.length;i++){
+        if(ignoreTargets) break;
         const n=model.nodes[i]; if(!n.target) continue;
         if(n.fix[0]&&n.fix[1]) continue; // already fixed
         // pull toward target with a strong projection, respecting individual DOF locks
@@ -1418,12 +1673,26 @@
         if(!n.fix[1]) ay = ty;
         X[i].x = ax; X[i].y = ay;
       }
-      if(maxErr < tol) break;
+      // Closest-pose pull to preferred positions (helps select the minimal-change configuration)
+      if(prefer && closeW>0){
+        for(let i=0;i<model.nodes.length;i++){
+          const n=model.nodes[i];
+          let ax=X[i].x, ay=X[i].y; const px=prefer[i].x, py=prefer[i].y;
+          if(!n.fix[0]) ax = ax*(1-closeW) + px*closeW;
+          if(!n.fix[1]) ay = ay*(1-closeW) + py*closeW;
+          X[i].x=ax; X[i].y=ay;
+        }
+      }
+      if(maxErr < tol){
+        converged=true; break;
+      }
     }
-    // Write back
-    for(let i=0;i<model.nodes.length;i++){ model.nodes[i].x=X[i].x; model.nodes[i].y=X[i].y; model.nodes[i].prev=[X[i].x, X[i].y]; }
-    draw();
-    return true;
+    // Write back conditionally
+    if(writeBack || converged){
+      for(let i=0;i<model.nodes.length;i++){ model.nodes[i].x=X[i].x; model.nodes[i].y=X[i].y; model.nodes[i].prev=[X[i].x, X[i].y]; }
+      draw();
+    }
+    return converged;
   }
 
   let playing = false;
